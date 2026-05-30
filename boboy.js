@@ -1996,7 +1996,7 @@ function renderHTML() {
                                 <h4 class="text-sm font-bold text-white">CORS Policy</h4>
                                 <p class="text-xs text-slate-500 mt-1">Cross-Origin Resource Sharing (CORS) allows you to define which domains can access your bucket.</p>
                             </div>
-                            <button onclick="showToast('Feature coming soon', 'info')" class="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all">Add CORS Rule</button>
+                            <button onclick="alert('Feature coming soon', 'info')" class="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all">Add CORS Rule</button>
                         </div>
                         <div class="bg-black/40 border border-slate-800 rounded-xl p-4 text-center">
                             <p class="text-xs text-slate-600 italic">No CORS rules defined for this bucket.</p>
@@ -3570,7 +3570,7 @@ function renderHTML() {
                         managerDomains.push(data.result); // Temporarily add so modal can find it if list hasn't refreshed yet
                         showNameserversModal(data.result.id);
                     } else {
-                        showToast("Domain berhasil ditambahkan!", "success");
+                        alert("Domain berhasil ditambahkan!", "success");
                     }
                 } else {
                     alert("Gagal menambahkan domain: " + data.message);
@@ -3598,7 +3598,7 @@ function renderHTML() {
                 const data = await res.json();
 
                 if (data.success) {
-                    showToast(\`Domain \${zoneName} berhasil dihapus\`, "success");
+                    alert(\`Domain \${zoneName} berhasil dihapus\`, "success");
                     loadManagerDomains();
                     loadZonesAndWorkers(); // refresh the dropdowns too
                 } else {
@@ -3801,7 +3801,7 @@ function renderHTML() {
                 if (data.success) {
                     closeAddDnsModal();
                     await fetchAndRenderDnsRecords(currentDnsZoneId);
-                    showToast('DNS record added successfully', 'success');
+                    alert('DNS record added successfully', 'success');
                 } else {
                     alert('Failed to add DNS record: ' + data.message);
                 }
@@ -3831,7 +3831,7 @@ function renderHTML() {
                 const data = await res.json();
 
                 if (data.success) {
-                    showToast(\`DNS record \${recordName} deleted\`, 'success');
+                    alert(\`DNS record \${recordName} deleted\`, 'success');
                     await fetchAndRenderDnsRecords(currentDnsZoneId);
                 } else {
                     alert('Failed to delete DNS record: ' + data.message);
@@ -4115,15 +4115,15 @@ function renderHTML() {
                 });
                 const data = await res.json();
                 if (data.success) {
-                    showToast('Folder created!', 'success');
+                    alert('Folder created!', 'success');
                     document.getElementById('r2CreateFolderModal').classList.add('hidden');
                     document.getElementById('r2NewFolderName').value = '';
                     loadR2Objects();
                 } else {
-                    showToast('Failed: ' + data.message, 'error');
+                    alert('Failed: ' + data.message, 'error');
                 }
             } catch (e) {
-                showToast('Error: ' + e.message, 'error');
+                alert('Error: ' + e.message, 'error');
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = originalHtml;
@@ -4132,7 +4132,7 @@ function renderHTML() {
 
         async function createR2Bucket() {
             const name = document.getElementById('newBucketName').value.trim();
-            if (!name) return showToast("Bucket name is required!", "error");
+            if (!name) return alert("Bucket name is required!", "error");
 
             const idx = document.getElementById('r2AccountSelect').value;
             const acc = accounts[idx];
@@ -4150,14 +4150,14 @@ function renderHTML() {
                 });
                 const data = await res.json();
                 if (data.success) {
-                    showToast("Bucket created successfully!", "success");
+                    alert("Bucket created successfully!", "success");
                     hideCreateBucketModal();
                     loadR2Buckets();
                 } else {
-                    showToast("Failed: " + data.message, "error");
+                    alert("Failed: " + data.message, "error");
                 }
             } catch (e) {
-                showToast("Error: " + e.message, "error");
+                alert("Error: " + e.message, "error");
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = originalHtml;
@@ -4183,14 +4183,14 @@ function renderHTML() {
                 });
                 const data = await res.json();
                 if (data.success) {
-                    showToast('Bucket berhasil dihapus!', 'success');
+                    alert('Bucket berhasil dihapus!', 'success');
                     allR2Buckets = allR2Buckets.filter(b => b.name !== name);
                     renderR2Buckets(allR2Buckets);
                 } else {
-                    showToast('Gagal hapus: ' + data.message, 'error');
+                    alert('Gagal hapus: ' + data.message, 'error');
                 }
             } catch (e) {
-                showToast('Error: ' + e.message, 'error');
+                alert('Error: ' + e.message, 'error');
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = originalHtml;
@@ -4218,7 +4218,7 @@ function renderHTML() {
             const workerName = document.getElementById('r2WorkerName').value.trim() || 'r2';
 
             if (!currentActiveBucket) {
-                showToast('Pilih bucket terlebih dahulu', 'error');
+                alert('Pilih bucket terlebih dahulu', 'error');
                 return;
             }
 
@@ -4246,12 +4246,12 @@ function renderHTML() {
                 });
                 const data = await res.json();
                 if (data.success) {
-                    showToast('Worker R2 Proxy berhasil dikonfigurasi!', 'success');
+                    alert('Worker R2 Proxy berhasil dikonfigurasi!', 'success');
                 } else {
                     throw new Error(data.message);
                 }
             } catch (e) {
-                showToast('Gagal konfigurasi: ' + e.message, 'error');
+                alert('Gagal konfigurasi: ' + e.message, 'error');
             } finally {
                 btn.innerHTML = originalContent;
                 btn.disabled = false;
@@ -4264,7 +4264,7 @@ function renderHTML() {
             const workerName = document.getElementById('r2WorkerName').value.trim() || 'r2';
 
             if (!currentActiveBucket) {
-                showToast('Pilih bucket terlebih dahulu', 'error');
+                alert('Pilih bucket terlebih dahulu', 'error');
                 return;
             }
 
@@ -4289,13 +4289,13 @@ function renderHTML() {
                 });
                 const data = await res.json();
                 if (data.success) {
-                    showToast('Worker R2 Proxy berhasil di-deploy!', 'success');
+                    alert('Worker R2 Proxy berhasil di-deploy!', 'success');
                     updateR2BaseUrl();
                 } else {
                     throw new Error(data.message);
                 }
             } catch (e) {
-                showToast('Gagal deploy: ' + e.message, 'error');
+                alert('Gagal deploy: ' + e.message, 'error');
             } finally {
                 btn.innerHTML = originalContent;
                 btn.disabled = false;
@@ -4421,18 +4421,18 @@ function renderHTML() {
                     });
                     const data = await res.json();
                     if (data.success) {
-                        showToast('File uploaded successfully!', 'success');
+                        alert('File uploaded successfully!', 'success');
                         loadR2Objects();
                         setTimeout(() => loadR2Objects(), 1000);
                     } else {
-                        showToast('Upload failed: ' + data.message, 'error');
+                        alert('Upload failed: ' + data.message, 'error');
                     }
                     event.target.value = '';
                 };
-                reader.onerror = () => showToast('File reading error', 'error');
+                reader.onerror = () => alert('File reading error', 'error');
                 reader.readAsArrayBuffer(file);
             } catch (e) {
-                showToast('Error: ' + e.message, 'error');
+                alert('Error: ' + e.message, 'error');
             }
         }
 
@@ -4455,14 +4455,14 @@ function renderHTML() {
                 });
                 const data = await res.json();
                 if (data.success) {
-                    showToast('File berhasil dihapus!', 'success');
+                    alert('File berhasil dihapus!', 'success');
                     currentBucketObjects = currentBucketObjects.filter(o => o.key !== key);
                     renderR2Objects(currentBucketObjects);
                 } else {
-                    showToast('Gagal hapus: ' + data.message, 'error');
+                    alert('Gagal hapus: ' + data.message, 'error');
                 }
             } catch (e) {
-                showToast('Error: ' + e.message, 'error');
+                alert('Error: ' + e.message, 'error');
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = originalHtml;
