@@ -262,6 +262,33 @@ class CfClient {
     });
   }
 
+  // --- DNS RECORDS METHODS ---
+
+  async listDnsRecords(zoneId) {
+    return this._fetch(`/zones/${zoneId}/dns_records`);
+  }
+
+  async createDnsRecord(zoneId, type, name, content, proxied, ttl = 1) {
+    const payload = {
+      type: type,
+      name: name,
+      content: content,
+      proxied: proxied,
+      ttl: ttl
+    };
+    return this._fetch(`/zones/${zoneId}/dns_records`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+  }
+
+  async deleteDnsRecord(zoneId, recordId) {
+    return this._fetch(`/zones/${zoneId}/dns_records/${recordId}`, {
+      method: 'DELETE',
+      contentType: null
+    });
+  }
+
   async registerCustomDomain(accountId, workerName, hostname, zoneId) {
     return this._fetch(`/accounts/${accountId}/workers/domains`, {
       method: 'PUT',
@@ -904,6 +931,42 @@ async function handleApiRequest(request, env) {
         try {
           await client.deleteZone(body.zoneId);
           return new Response(JSON.stringify({ success: true, message: "Zone deleted" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        } catch (e) {
+          return new Response(JSON.stringify({ success: false, message: e.message }), {
+            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+
+      case '/api/listDnsRecords':
+        try {
+          const res = await client.listDnsRecords(body.zoneId);
+          return new Response(JSON.stringify({ success: true, result: res }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        } catch (e) {
+          return new Response(JSON.stringify({ success: false, message: e.message }), {
+            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+
+      case '/api/createDnsRecord':
+        try {
+          const res = await client.createDnsRecord(body.zoneId, body.type, body.name, body.content, body.proxied, body.ttl);
+          return new Response(JSON.stringify({ success: true, result: res }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        } catch (e) {
+          return new Response(JSON.stringify({ success: false, message: e.message }), {
+            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+
+      case '/api/deleteDnsRecord':
+        try {
+          await client.deleteDnsRecord(body.zoneId, body.recordId);
+          return new Response(JSON.stringify({ success: true, message: "Record deleted" }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" }
           });
         } catch (e) {
@@ -2128,6 +2191,125 @@ function renderHTML() {
         </div>
     </div>
 
+    <!-- DNS Manager Modal -->
+    <div id="dnsRecordsModal" class="fixed inset-0 bg-[#070b14]/90 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-[#111722] border border-slate-800 rounded-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden shadow-2xl relative">
+
+            <!-- Modal Header -->
+            <div class="p-6 border-b border-slate-800 flex justify-between items-center bg-[#0d1117]">
+                <div>
+                    <h3 class="text-2xl font-bold text-white mb-1" id="dnsModalTitle">DNS records for domain.com</h3>
+                    <p class="text-sm text-slate-400">Manage how the Internet finds your web content, verifies services, and routes traffic.</p>
+                </div>
+                <button onclick="closeDnsManager()" class="text-slate-500 hover:text-white transition-all w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-800">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+
+            <!-- Main Content Area -->
+            <div class="flex-1 overflow-y-auto p-6 space-y-6">
+                <!-- Toolbar -->
+                <div class="flex flex-wrap gap-4 items-center justify-between">
+                    <div class="relative flex-1 min-w-[300px]">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fa-solid fa-magnifying-glass text-slate-500"></i>
+                        </div>
+                        <input type="text" id="dnsSearchInput" onkeyup="filterDnsRecords()" placeholder="Search DNS Records" class="w-full pl-10 pr-4 py-2.5 bg-[#0d1117] border border-slate-800 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500 transition-colors">
+                    </div>
+                    <div class="flex gap-3">
+                        <button onclick="openAddDnsModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2">
+                            <i class="fa-solid fa-plus"></i> Add record
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Add Record Form (Hidden by default) -->
+                <div id="addDnsRecordForm" class="bg-[#0b0e14] border border-slate-700 rounded-xl p-5 hidden">
+                    <h4 class="text-white font-bold mb-4">Add record</h4>
+                    <p class="text-slate-400 text-xs mb-4">Select record type and enter necessary information.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
+
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-bold text-slate-400 mb-1.5 uppercase">Type</label>
+                            <select id="newDnsType" class="w-full bg-[#111722] border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500">
+                                <option value="A">A</option>
+                                <option value="AAAA">AAAA</option>
+                                <option value="CNAME">CNAME</option>
+                                <option value="TXT">TXT</option>
+                                <option value="MX">MX</option>
+                                <option value="SRV">SRV</option>
+                                <option value="NS">NS</option>
+                            </select>
+                        </div>
+
+                        <div class="md:col-span-3">
+                            <label class="block text-xs font-bold text-slate-400 mb-1.5 uppercase">Name</label>
+                            <input type="text" id="newDnsName" placeholder="Use @ for root" class="w-full bg-[#111722] border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500">
+                        </div>
+
+                        <div class="md:col-span-4">
+                            <label class="block text-xs font-bold text-slate-400 mb-1.5 uppercase">Target / Content</label>
+                            <input type="text" id="newDnsContent" placeholder="IPv4 address or domain" class="w-full bg-[#111722] border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500">
+                        </div>
+
+                        <div class="md:col-span-2 flex flex-col justify-center h-full pt-6">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="newDnsProxied" class="hidden" checked onchange="toggleProxyIcon(this)">
+                                <div class="w-10 h-5 bg-orange-500 rounded-full relative transition-colors" id="proxyToggleBg">
+                                    <div class="absolute right-1 top-1 w-3 h-3 bg-white rounded-full transition-transform" id="proxyToggleDot"></div>
+                                </div>
+                                <span class="text-xs text-slate-300 font-medium flex items-center gap-1">
+                                    <i class="fa-brands fa-cloudflare text-orange-500 text-lg" id="proxyIcon"></i> <span id="proxyLabel">Proxied</span>
+                                </span>
+                            </label>
+                        </div>
+
+                        <div class="md:col-span-1">
+                            <label class="block text-xs font-bold text-slate-400 mb-1.5 uppercase">TTL</label>
+                            <select id="newDnsTtl" class="w-full bg-[#111722] border border-slate-700 rounded-lg px-2 py-2 text-white text-sm focus:outline-none focus:border-blue-500">
+                                <option value="1">Auto</option>
+                                <option value="120">2 min</option>
+                                <option value="300">5 min</option>
+                                <option value="3600">1 hr</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mt-5 flex justify-end gap-3 pt-4 border-t border-slate-800">
+                        <button onclick="closeAddDnsModal()" class="px-4 py-2 text-sm text-slate-400 hover:text-white transition-colors">Cancel</button>
+                        <button id="btnSaveDnsRecord" onclick="submitAddDnsRecord()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-sm font-bold transition-all">Save</button>
+                    </div>
+                </div>
+
+                <!-- DNS Records List -->
+                <div class="bg-[#0b0e14] border border-slate-800 rounded-xl overflow-hidden">
+                    <div class="px-4 py-3 border-b border-slate-800 bg-[#0d1117] flex justify-between items-center">
+                        <span class="text-sm text-slate-400 font-bold" id="dnsRecordsCount">0 records</span>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm text-slate-300">
+                            <thead class="text-xs text-slate-400 uppercase bg-[#111722] border-b border-slate-800">
+                                <tr>
+                                    <th scope="col" class="px-4 py-3 font-bold">Type</th>
+                                    <th scope="col" class="px-4 py-3 font-bold">Name</th>
+                                    <th scope="col" class="px-4 py-3 font-bold">Content</th>
+                                    <th scope="col" class="px-4 py-3 font-bold">Proxy status</th>
+                                    <th scope="col" class="px-4 py-3 font-bold">TTL</th>
+                                    <th scope="col" class="px-4 py-3 font-bold text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dnsRecordsTableBody" class="divide-y divide-slate-800/50">
+                                <!-- Records will be injected here -->
+                                <tr><td colspan="6" class="px-4 py-10 text-center text-slate-500">Loading DNS records...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Nameservers Modal -->
     <div id="nameserversModal" class="fixed inset-0 bg-[#070b14]/90 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
         <div class="bg-[#111722] border border-slate-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl relative">
@@ -3341,6 +3523,9 @@ function renderHTML() {
                         <button onclick="showNameserversModal('\${d.id}')" class="flex-1 bg-[#161b22] hover:bg-slate-800 text-white py-2.5 rounded-lg text-xs font-bold transition-all border border-slate-700 flex items-center justify-center gap-2">
                             <i class="fa-solid fa-server"></i> Nameservers
                         </button>
+                        <button onclick="openDnsManager('\${d.id}', '\${d.name}')" class="flex-1 bg-[#161b22] hover:bg-slate-800 text-white py-2.5 rounded-lg text-xs font-bold transition-all border border-slate-700 flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-network-wired"></i> Kelola DNS
+                        </button>
                         <button onclick="deleteManagerDomain('\${d.id}', '\${d.name}')" class="flex-1 bg-red-950/30 hover:bg-red-900/50 text-red-400 py-2.5 rounded-lg text-xs font-bold transition-all border border-red-900/30 flex items-center justify-center gap-2">
                             <i class="fa-solid fa-trash-can"></i> Hapus
                         </button>
@@ -3449,6 +3634,211 @@ function renderHTML() {
 
         function hideNameserversModal() {
             document.getElementById('nameserversModal').classList.add('hidden');
+        }
+
+        let currentDnsZoneId = null;
+        let currentDnsRecords = [];
+
+        async function openDnsManager(zoneId, zoneName) {
+            currentDnsZoneId = zoneId;
+            document.getElementById('dnsModalTitle').innerText = \`DNS records for \${zoneName}\`;
+            document.getElementById('dnsRecordsModal').classList.remove('hidden');
+            document.getElementById('addDnsRecordForm').classList.add('hidden');
+
+            await fetchAndRenderDnsRecords(zoneId);
+        }
+
+        function closeDnsManager() {
+            document.getElementById('dnsRecordsModal').classList.add('hidden');
+            currentDnsZoneId = null;
+            currentDnsRecords = [];
+        }
+
+        async function fetchAndRenderDnsRecords(zoneId) {
+            const idx = document.getElementById('zoneAccountSelect').value;
+            const acc = accounts[idx];
+            const tbody = document.getElementById('dnsRecordsTableBody');
+
+            tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-10 text-center text-slate-500"><i class="fa-solid fa-circle-notch fa-spin text-xl text-blue-500 mb-2 block"></i> Loading DNS records...</td></tr>';
+
+            try {
+                const res = await fetch(API_BASE_URL + '/api/listDnsRecords', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: acc.email, apiKey: acc.apiKey, accountId: acc.accountId, zoneId: zoneId })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    currentDnsRecords = data.result || [];
+                    renderDnsRecordsTable(currentDnsRecords);
+                } else {
+                    tbody.innerHTML = \`<tr><td colspan="6" class="px-4 py-10 text-center text-red-500">Failed to load records: \${data.message}</td></tr>\`;
+                }
+            } catch (e) {
+                tbody.innerHTML = \`<tr><td colspan="6" class="px-4 py-10 text-center text-red-500">Error: \${e.message}</td></tr>\`;
+            }
+        }
+
+        function renderDnsRecordsTable(records) {
+            const tbody = document.getElementById('dnsRecordsTableBody');
+            document.getElementById('dnsRecordsCount').innerText = \`\${records.length} records\`;
+
+            if (records.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-10 text-center text-slate-500">No DNS records found.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = records.map(r => {
+                const isProxied = r.proxied;
+                const proxyIcon = isProxied ? '<i class="fa-brands fa-cloudflare text-orange-500 text-lg"></i> <span class="text-orange-500">Proxied</span>' : '<i class="fa-solid fa-arrow-turn-down text-slate-500"></i> <span class="text-slate-400">DNS only</span>';
+                let ttlText = r.ttl === 1 ? 'Auto' : (r.ttl >= 3600 ? \`\${r.ttl/3600} hr\` : \`\${r.ttl/60} min\`);
+
+                return \`
+                <tr class="hover:bg-[#161b22] transition-colors group">
+                    <td class="px-4 py-3 font-mono text-xs text-white">\${r.type}</td>
+                    <td class="px-4 py-3 font-medium text-white">\${r.name}</td>
+                    <td class="px-4 py-3 font-mono text-xs text-slate-400 truncate max-w-[200px]" title="\${r.content}">\${r.content}</td>
+                    <td class="px-4 py-3 text-xs flex items-center gap-1.5">\${proxyIcon}</td>
+                    <td class="px-4 py-3 text-xs text-slate-400">\${ttlText}</td>
+                    <td class="px-4 py-3 text-right">
+                        <button onclick="deleteDnsRecord('\${r.id}', '\${r.name}')" class="text-slate-500 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 px-2 py-1">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </td>
+                </tr>
+                \`;
+            }).join('');
+        }
+
+        function filterDnsRecords() {
+            const query = document.getElementById('dnsSearchInput').value.toLowerCase();
+            if (!query) {
+                renderDnsRecordsTable(currentDnsRecords);
+                return;
+            }
+            const filtered = currentDnsRecords.filter(r =>
+                r.name.toLowerCase().includes(query) ||
+                r.content.toLowerCase().includes(query) ||
+                r.type.toLowerCase().includes(query)
+            );
+            renderDnsRecordsTable(filtered);
+        }
+
+        function openAddDnsModal() {
+            document.getElementById('addDnsRecordForm').classList.remove('hidden');
+            // reset form
+            document.getElementById('newDnsType').value = 'A';
+            document.getElementById('newDnsName').value = '';
+            document.getElementById('newDnsContent').value = '';
+            document.getElementById('newDnsTtl').value = '1';
+
+            const proxiedCheckbox = document.getElementById('newDnsProxied');
+            if(!proxiedCheckbox.checked) {
+                proxiedCheckbox.checked = true;
+                toggleProxyIcon(proxiedCheckbox);
+            }
+        }
+
+        function closeAddDnsModal() {
+            document.getElementById('addDnsRecordForm').classList.add('hidden');
+        }
+
+        function toggleProxyIcon(checkbox) {
+            const bg = document.getElementById('proxyToggleBg');
+            const dot = document.getElementById('proxyToggleDot');
+            const icon = document.getElementById('proxyIcon');
+            const label = document.getElementById('proxyLabel');
+
+            if (checkbox.checked) {
+                bg.classList.remove('bg-slate-600');
+                bg.classList.add('bg-orange-500');
+                dot.classList.remove('-translate-x-5');
+
+                icon.className = 'fa-brands fa-cloudflare text-orange-500 text-lg';
+                label.innerText = 'Proxied';
+                label.className = 'text-orange-500';
+            } else {
+                bg.classList.remove('bg-orange-500');
+                bg.classList.add('bg-slate-600');
+                dot.classList.add('-translate-x-5');
+
+                icon.className = 'fa-solid fa-arrow-turn-down text-slate-500';
+                label.innerText = 'DNS only';
+                label.className = 'text-slate-400';
+            }
+        }
+
+        async function submitAddDnsRecord() {
+            if (!currentDnsZoneId) return;
+
+            const idx = document.getElementById('zoneAccountSelect').value;
+            const acc = accounts[idx];
+
+            const type = document.getElementById('newDnsType').value;
+            const name = document.getElementById('newDnsName').value.trim();
+            const content = document.getElementById('newDnsContent').value.trim();
+            const proxied = document.getElementById('newDnsProxied').checked;
+            const ttl = parseInt(document.getElementById('newDnsTtl').value);
+
+            if (!name || !content) return alert('Name and Content are required!');
+
+            const btn = document.getElementById('btnSaveDnsRecord');
+            const originalText = btn.innerText;
+            btn.innerText = 'Saving...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch(API_BASE_URL + '/api/createDnsRecord', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: acc.email, apiKey: acc.apiKey, accountId: acc.accountId,
+                        zoneId: currentDnsZoneId, type, name, content, proxied, ttl
+                    })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    closeAddDnsModal();
+                    await fetchAndRenderDnsRecords(currentDnsZoneId);
+                    showToast('DNS record added successfully', 'success');
+                } else {
+                    alert('Failed to add DNS record: ' + data.message);
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        async function deleteDnsRecord(recordId, recordName) {
+            if (!confirm(\`Are you sure you want to delete the DNS record for \${recordName}?\`)) return;
+
+            const idx = document.getElementById('zoneAccountSelect').value;
+            const acc = accounts[idx];
+
+            try {
+                const res = await fetch(API_BASE_URL + '/api/deleteDnsRecord', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: acc.email, apiKey: acc.apiKey, accountId: acc.accountId,
+                        zoneId: currentDnsZoneId, recordId: recordId
+                    })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    showToast(\`DNS record \${recordName} deleted\`, 'success');
+                    await fetchAndRenderDnsRecords(currentDnsZoneId);
+                } else {
+                    alert('Failed to delete DNS record: ' + data.message);
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
         }
 
         function renderZoneInfo() {
