@@ -237,10 +237,56 @@ class CfClient {
     });
   }
 
-  async listZones(name = "") {
-    let path = "/zones?status=active&per_page=50";
+  async listZones(name = "", status = "active") {
+    let path = `/zones?per_page=50`;
+    if (status) path += `&status=${status}`;
     if (name) path += `&name=${name}`;
     return this._fetch(path);
+  }
+
+  async createZone(accountId, zoneName) {
+    return this._fetch("/zones", {
+      method: 'POST',
+      body: JSON.stringify({
+        account: { id: accountId },
+        name: zoneName,
+        type: "full"
+      })
+    });
+  }
+
+  async deleteZone(zoneId) {
+    return this._fetch(`/zones/${zoneId}`, {
+      method: 'DELETE',
+      contentType: null
+    });
+  }
+
+  // --- DNS RECORDS METHODS ---
+
+  async listDnsRecords(zoneId) {
+    return this._fetch(`/zones/${zoneId}/dns_records`);
+  }
+
+  async createDnsRecord(zoneId, type, name, content, proxied, ttl = 1) {
+    const payload = {
+      type: type,
+      name: name,
+      content: content,
+      proxied: proxied,
+      ttl: ttl
+    };
+    return this._fetch(`/zones/${zoneId}/dns_records`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+  }
+
+  async deleteDnsRecord(zoneId, recordId) {
+    return this._fetch(`/zones/${zoneId}/dns_records/${recordId}`, {
+      method: 'DELETE',
+      contentType: null
+    });
   }
 
   async registerCustomDomain(accountId, workerName, hostname, zoneId) {
@@ -862,12 +908,72 @@ async function handleApiRequest(request, env) {
       }
 
       case '/api/listZones':
-        return new Response(JSON.stringify(await client.listZones(body.name)), {
+        return new Response(JSON.stringify(await client.listZones(body.name, body.status !== undefined ? body.status : "active")), {
           headers: {
             ...corsHeaders,
             "Content-Type": "application/json"
           }
         });
+
+      case '/api/createZone':
+        try {
+          const res = await client.createZone(accountId, body.zoneName);
+          return new Response(JSON.stringify({ success: true, result: res.result }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        } catch (e) {
+          return new Response(JSON.stringify({ success: false, message: e.message }), {
+            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+
+      case '/api/deleteZone':
+        try {
+          await client.deleteZone(body.zoneId);
+          return new Response(JSON.stringify({ success: true, message: "Zone deleted" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        } catch (e) {
+          return new Response(JSON.stringify({ success: false, message: e.message }), {
+            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+
+      case '/api/listDnsRecords':
+        try {
+          const res = await client.listDnsRecords(body.zoneId);
+          return new Response(JSON.stringify(res), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        } catch (e) {
+          return new Response(JSON.stringify({ success: false, message: e.message }), {
+            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+
+      case '/api/createDnsRecord':
+        try {
+          const res = await client.createDnsRecord(body.zoneId, body.type, body.name, body.content, body.proxied, body.ttl);
+          return new Response(JSON.stringify(res), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        } catch (e) {
+          return new Response(JSON.stringify({ success: false, message: e.message }), {
+            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+
+      case '/api/deleteDnsRecord':
+        try {
+          const res = await client.deleteDnsRecord(body.zoneId, body.recordId);
+          return new Response(JSON.stringify(res), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        } catch (e) {
+          return new Response(JSON.stringify({ success: false, message: e.message }), {
+            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
 
       case '/api/registerWildcard':
         await client.registerCustomDomain(accountId, body.workerName, body.hostname, body.zoneId);
@@ -1491,51 +1597,65 @@ function renderHTML() {
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Zone Selector Card -->
-                    <div class="glass-card p-6 rounded-3xl border border-slate-800 flex flex-col gap-4">
-                        <h4 class="text-sm font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                            <i class="fa-solid fa-globe text-blue-500"></i> Zone / Domain Setup
-                        </h4>
-                        <div class="space-y-4">
-                            <div>
-                                <label class="text-[10px] text-slate-500 uppercase font-black mb-1 block">Select Domain</label>
-                                <select id="targetZoneSelect" class="w-full bg-[#0d1117] border border-slate-700 rounded-xl px-4 py-2 text-sm text-white outline-none focus:border-blue-500">
-                                    <option value="">No domains available</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="text-[10px] text-slate-500 uppercase font-black mb-1 block">Select Worker</label>
-                                <div class="flex gap-2">
-                                    <select id="targetWorkerSelect" onchange="loadLinkedDomains()" class="flex-1 bg-[#0d1117] border border-slate-700 rounded-xl px-4 py-2 text-sm text-white outline-none focus:border-blue-500">
-                                        <option value="">No workers available</option>
-                                    </select>
-                                    <button onclick="loadLinkedDomains()" class="bg-slate-800 hover:bg-slate-700 p-2 rounded-xl text-white transition-all" title="Reload Linked Domains">
-                                        <i class="fa-solid fa-sync"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            <div>
-                                <label class="text-[10px] text-slate-500 uppercase font-black mb-1 block">Subdomain Prefixes (One per line)</label>
-                                <div class="space-y-3">
-                                    <textarea id="subdomainPrefixes" rows="5" placeholder="vpn&#10;app&#10;mangan.com" class="w-full bg-[#0d1117] border border-slate-700 rounded-xl px-4 py-2 text-xs text-white outline-none focus:border-blue-500 resize-none"></textarea>
-                                    <button onclick="registerCustomDomainFlow()" id="linkDomainBtn" class="w-full bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2">
-                                        <i class="fa-solid fa-link"></i> LINK DOMAINS
-                                    </button>
-                                </div>
-                                <p class="text-[9px] text-slate-600 mt-2 italic">Format: prefix.domain.com atau domain.com (masukkan prefix saja)</p>
-                            </div>
-                            <div id="zoneProgress" class="hidden mt-2">
-                                <div class="flex justify-between text-[9px] mb-1">
-                                    <span id="zoneProgressText" class="text-slate-500">Processing...</span>
-                                    <span id="zoneProgressPercent" class="text-blue-500 font-bold">0%</span>
-                                </div>
-                                <div class="w-full bg-slate-800 rounded-full h-1">
-                                    <div id="zoneProgressBar" class="bg-blue-500 h-1 rounded-full transition-all" style="width: 0%"></div>
-                                </div>
-                            </div>
-                        </div>
+                <!-- Sub-navigation -->
+                <div class="flex bg-[#0d1117] rounded-xl border border-slate-800 overflow-x-auto no-scrollbar mb-4">
+    <button onclick="switchSubTabZone('setup')" id="btn-sub-zone-setup" class="px-3 sm:px-6 py-2.5 sm:py-3 text-[9px] sm:text-[10px] font-black uppercase tracking-widest active-sub-tab transition-all whitespace-nowrap">Zone / Domain Setup</button>
+    <button onclick="switchSubTabZone('manager')" id="btn-sub-domain-manager" class="px-3 sm:px-6 py-2.5 sm:py-3 text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-white transition-all whitespace-nowrap">Domain Manager</button>
+</div>
+
+<div id="sub-tab-zone-setup" class="sub-tab-content-zone active fade-in space-y-4 sm:space-y-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        <!-- Zone Selector Card -->
+        <div class="glass-card p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-800 flex flex-col gap-3 sm:gap-4">
+            <h4 class="text-[11px] sm:text-sm font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                <i class="fa-solid fa-globe text-blue-500 text-xs sm:text-sm"></i> Zone / Domain Setup
+            </h4>
+            <div class="space-y-3 sm:space-y-4">
+                <!-- Select Domain -->
+                <div>
+                    <label class="text-[9px] sm:text-[10px] text-slate-500 uppercase font-black mb-1 block">Select Domain</label>
+                    <select id="targetZoneSelect" class="w-full bg-[#0d1117] border border-slate-700 rounded-lg sm:rounded-xl px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm text-white outline-none focus:border-blue-500">
+                        <option value="">No domains available</option>
+                    </select>
+                </div>
+                
+                <!-- Select Worker -->
+                <div>
+                    <label class="text-[9px] sm:text-[10px] text-slate-500 uppercase font-black mb-1 block">Select Worker</label>
+                    <div class="flex gap-2">
+                        <select id="targetWorkerSelect" onchange="loadLinkedDomains()" class="flex-1 bg-[#0d1117] border border-slate-700 rounded-lg sm:rounded-xl px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm text-white outline-none focus:border-blue-500">
+                            <option value="">No workers available</option>
+                        </select>
+                        <button onclick="loadLinkedDomains()" class="bg-slate-800 hover:bg-slate-700 p-1.5 sm:p-2 rounded-lg sm:rounded-xl text-white transition-all" title="Reload Linked Domains">
+                            <i class="fa-solid fa-sync text-xs sm:text-sm"></i>
+                        </button>
                     </div>
+                </div>
+                
+                <!-- Subdomain Prefixes -->
+                <div>
+                    <label class="text-[9px] sm:text-[10px] text-slate-500 uppercase font-black mb-1 block">Subdomain Prefixes (One per line)</label>
+                    <div class="space-y-2 sm:space-y-3">
+                        <textarea id="subdomainPrefixes" rows="4 sm:rows-5" placeholder="vpn&#10;app&#10;mangan.com" class="w-full bg-[#0d1117] border border-slate-700 rounded-lg sm:rounded-xl px-3 sm:px-4 py-2 text-[11px] sm:text-xs text-white outline-none focus:border-blue-500 resize-none"></textarea>
+                        <button onclick="registerCustomDomainFlow()" id="linkDomainBtn" class="w-full bg-blue-600 hover:bg-blue-500 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-black transition-all flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-link text-xs sm:text-sm"></i> LINK DOMAINS
+                        </button>
+                    </div>
+                    <p class="text-[8px] sm:text-[9px] text-slate-600 mt-1.5 sm:mt-2 italic">Format: prefix.domain.com atau domain.com (masukkan prefix saja)</p>
+                </div>
+                
+                <!-- Progress Bar -->
+                <div id="zoneProgress" class="hidden mt-1 sm:mt-2">
+                    <div class="flex justify-between text-[8px] sm:text-[9px] mb-1">
+                        <span id="zoneProgressText" class="text-slate-500">Processing...</span>
+                        <span id="zoneProgressPercent" class="text-blue-500 font-bold">0%</span>
+                    </div>
+                    <div class="w-full bg-slate-800 rounded-full h-1">
+                        <div id="zoneProgressBar" class="bg-blue-500 h-1 rounded-full transition-all" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
                     <!-- Active Mappings / Zone Info -->
                     <div class="space-y-1">
@@ -1552,6 +1672,39 @@ function renderHTML() {
                         </div>
                     </div>
                 </div>
+                </div> <!-- End Sub-tab: Zone Setup -->
+
+                <!-- Sub-tab: Domain Manager -->
+                <div id="sub-tab-domain-manager" class="sub-tab-content-zone hidden fade-in space-y-6">
+                    <div class="glass-card p-2 rounded-3xl border border-slate-800 space-y-6">
+                        <!-- Add Domain Input -->
+                        <div class="flex flex-col md:flex-row gap-4 bg-[#0d1117] p-2 rounded-2xl border border-slate-800">
+                            <div class="relative flex-1 flex items-center bg-black/40 rounded-xl px-4 py-2 border border-slate-700/50">
+                                <i class="fa-solid fa-globe text-slate-500 mr-3"></i>
+                                <input type="text" id="newDomainInput" placeholder="Masukkan domain (contoh: webku.com)" class="w-full bg-transparent text-sm text-white outline-none placeholder-slate-500 font-medium">
+                            </div>
+                            <button onclick="addNewDomain()" id="btnAddDomain" class="mx-auto w-auto bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white font-black py-2 px-6 rounded-2xl shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3">
+                                <i class="fa-solid fa-plus"></i> Tambah Domain
+                            </button>
+                        </div>
+
+                        <!-- Domains List Header -->
+                        <div class="flex justify-between items-center border-b border-slate-800/50 pb-4">
+                            <h3 class="text-base sm:text-lg font-bold text-white flex items-center gap-2 sm:gap-3">
+    <i class="fa-solid fa-server text-white text-sm sm:text-base"></i> Domain Cloudflare
+</h3>
+                            <button onclick="loadManagerDomains()" class="bg-[#0d1117] hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all border border-slate-700 flex items-center gap-2">
+                                <i class="fa-solid fa-sync"></i> Refresh
+                            </button>
+                        </div>
+
+                        <!-- Domains List Container -->
+                        <div id="managerDomainsList" class="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+                            <!-- Domain cards will be injected here -->
+                        </div>
+                    </div>
+                </div> <!-- End Sub-tab: Domain Manager -->
+
             </div>
 
             <!-- Tab: Pages -->
@@ -1850,7 +2003,7 @@ function renderHTML() {
                                 <h4 class="text-sm font-bold text-white">CORS Policy</h4>
                                 <p class="text-xs text-slate-500 mt-1">Cross-Origin Resource Sharing (CORS) allows you to define which domains can access your bucket.</p>
                             </div>
-                            <button onclick="showToast('Feature coming soon', 'info')" class="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all">Add CORS Rule</button>
+                            <button onclick="alert('Feature coming soon', 'info')" class="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all">Add CORS Rule</button>
                         </div>
                         <div class="bg-black/40 border border-slate-800 rounded-xl p-4 text-center">
                             <p class="text-xs text-slate-600 italic">No CORS rules defined for this bucket.</p>
@@ -2041,6 +2194,153 @@ function renderHTML() {
             <div class="p-6 border-t border-slate-800 bg-[#0d1117] flex justify-end gap-3">
                 <button onclick="hideCreatePagesProjectModal()" class="bg-slate-800 hover:bg-slate-700 px-6 py-2 rounded-xl text-xs font-bold text-white transition-all">Cancel</button>
                 <button onclick="createPagesProject()" class="bg-blue-600 hover:bg-blue-500 px-6 py-2 rounded-xl text-xs font-bold text-white transition-all">CREATE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- DNS Manager Modal -->
+    <div id="dnsRecordsModal" class="fixed inset-0 bg-[#070b14]/90 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-[#111722] border border-slate-800 rounded-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden shadow-2xl relative">
+
+            <!-- Modal Header -->
+            <div class="p-6 border-b border-slate-800 flex justify-between items-center bg-[#0d1117]">
+                <div>
+                    <h3 class="text-2xl font-bold text-white mb-1" id="dnsModalTitle">DNS records for domain.com</h3>
+                    <p class="text-sm text-slate-400">Manage how the Internet finds your web content, verifies services, and routes traffic.</p>
+                </div>
+                <button onclick="closeDnsManager()" class="text-slate-500 hover:text-white transition-all w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-800">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+
+            <!-- Main Content Area -->
+            <div class="flex-1 overflow-y-auto p-6 space-y-6">
+                <!-- Toolbar -->
+                <div class="flex flex-wrap gap-4 items-center justify-between">
+                    <div class="relative flex-1 min-w-[300px]">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fa-solid fa-magnifying-glass text-slate-500"></i>
+                        </div>
+                        <input type="text" id="dnsSearchInput" onkeyup="filterDnsRecords()" placeholder="Search DNS Records" class="w-full pl-10 pr-4 py-2.5 bg-[#0d1117] border border-slate-800 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500 transition-colors">
+                    </div>
+                    <div class="flex gap-3">
+                        <button onclick="openAddDnsModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2">
+                            <i class="fa-solid fa-plus"></i> Add record
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Add Record Form (Hidden by default) -->
+                <div id="addDnsRecordForm" class="bg-[#0b0e14] border border-slate-700 rounded-xl p-5 hidden">
+                    <h4 class="text-white font-bold mb-4">Add record</h4>
+                    <p class="text-slate-400 text-xs mb-4">Select record type and enter necessary information.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
+
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-bold text-slate-400 mb-1.5 uppercase">Type</label>
+                            <select id="newDnsType" class="w-full bg-[#111722] border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500">
+                                <option value="A">A</option>
+                                <option value="AAAA">AAAA</option>
+                                <option value="CNAME">CNAME</option>
+                                <option value="TXT">TXT</option>
+                                <option value="MX">MX</option>
+                                <option value="SRV">SRV</option>
+                                <option value="NS">NS</option>
+                            </select>
+                        </div>
+
+                        <div class="md:col-span-3">
+                            <label class="block text-xs font-bold text-slate-400 mb-1.5 uppercase">Name</label>
+                            <input type="text" id="newDnsName" placeholder="Use @ for root" class="w-full bg-[#111722] border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500">
+                        </div>
+
+                        <div class="md:col-span-4">
+                            <label class="block text-xs font-bold text-slate-400 mb-1.5 uppercase">Target / Content</label>
+                            <input type="text" id="newDnsContent" placeholder="IPv4 address or domain" class="w-full bg-[#111722] border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500">
+                        </div>
+
+                        <div class="md:col-span-2 flex flex-col justify-center h-full pt-6">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="newDnsProxied" class="hidden" checked onchange="toggleProxyIcon(this)">
+                                <div class="w-10 h-5 bg-orange-500 rounded-full relative transition-colors" id="proxyToggleBg">
+                                    <div class="absolute right-1 top-1 w-3 h-3 bg-white rounded-full transition-transform" id="proxyToggleDot"></div>
+                                </div>
+                                <span class="text-xs text-slate-300 font-medium flex items-center gap-1">
+                                    <i class="fa-brands fa-cloudflare text-orange-500 text-lg" id="proxyIcon"></i> <span id="proxyLabel">Proxied</span>
+                                </span>
+                            </label>
+                        </div>
+
+                        <div class="md:col-span-1">
+                            <label class="block text-xs font-bold text-slate-400 mb-1.5 uppercase">TTL</label>
+                            <select id="newDnsTtl" class="w-full bg-[#111722] border border-slate-700 rounded-lg px-2 py-2 text-white text-sm focus:outline-none focus:border-blue-500">
+                                <option value="1">Auto</option>
+                                <option value="120">2 min</option>
+                                <option value="300">5 min</option>
+                                <option value="3600">1 hr</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mt-5 flex justify-end gap-3 pt-4 border-t border-slate-800">
+                        <button onclick="closeAddDnsModal()" class="px-4 py-2 text-sm text-slate-400 hover:text-white transition-colors">Cancel</button>
+                        <button id="btnSaveDnsRecord" onclick="submitAddDnsRecord()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-sm font-bold transition-all">Save</button>
+                    </div>
+                </div>
+
+                <!-- DNS Records List -->
+                <div class="bg-[#0b0e14] border border-slate-800 rounded-xl overflow-hidden">
+                    <div class="px-4 py-3 border-b border-slate-800 bg-[#0d1117] flex justify-between items-center">
+                        <span class="text-sm text-slate-400 font-bold" id="dnsRecordsCount">0 records</span>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm text-slate-300">
+                            <thead class="text-xs text-slate-400 uppercase bg-[#111722] border-b border-slate-800">
+                                <tr>
+                                    <th scope="col" class="px-4 py-3 font-bold">Type</th>
+                                    <th scope="col" class="px-4 py-3 font-bold">Name</th>
+                                    <th scope="col" class="px-4 py-3 font-bold">Content</th>
+                                    <th scope="col" class="px-4 py-3 font-bold">Proxy status</th>
+                                    <th scope="col" class="px-4 py-3 font-bold">TTL</th>
+                                    <th scope="col" class="px-4 py-3 font-bold text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dnsRecordsTableBody" class="divide-y divide-slate-800/50">
+                                <!-- Records will be injected here -->
+                                <tr><td colspan="6" class="px-4 py-10 text-center text-slate-500">Loading DNS records...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Nameservers Modal -->
+    <div id="nameserversModal" class="fixed inset-0 bg-[#070b14]/90 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-[#111722] border border-slate-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl relative">
+            <div class="p-6 pb-2">
+                <h5 class="text-xl font-bold text-white mb-1">Persiapan DNS -</h5>
+                <h5 class="text-xl font-bold text-white mb-4" id="nsModalDomainName">domain.com</h5>
+                <p class="text-[13px] text-slate-400 leading-relaxed mb-6">
+                    Salin nama server berikut ke registrar domain Anda (Klik baris nama server untuk menyalin langsung):
+                </p>
+                <div class="bg-[#0b0e14] p-3 rounded-xl border border-slate-800 space-y-3" id="nsModalList">
+                    <!-- Nameservers will be injected here -->
+                </div>
+
+                <div class="mt-6 bg-[#2a1d13] border border-[#4a2e15] rounded-xl p-4 flex gap-3 items-start">
+                    <i class="fa-solid fa-circle-info text-orange-500 mt-0.5"></i>
+                    <p class="text-[11px] text-orange-400/90 leading-relaxed">
+                        Proses penyelarasan DNS propagasi membutuhkan waktu berkisar 1 s/d 24 jam tergantung provider registrar Anda.
+                    </p>
+                </div>
+            </div>
+            <div class="p-6 flex justify-end">
+                <button onclick="hideNameserversModal()" class="bg-transparent hover:bg-white/5 border border-slate-700 text-white px-8 py-2.5 rounded-xl text-sm font-bold transition-all">
+                    Tutup
+                </button>
             </div>
         </div>
     </div>
@@ -3087,6 +3387,26 @@ function renderHTML() {
         // --- Zone Management ---
         let currentZones = [];
         let currentWorkers = [];
+        let managerDomains = [];
+
+        function switchSubTabZone(sub) {
+            document.querySelectorAll('.sub-tab-content-zone').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('button[id^="btn-sub-zone-"], button[id^="btn-sub-domain-"]').forEach(el => {
+                el.classList.remove('active-sub-tab');
+                el.classList.add('text-slate-500');
+            });
+
+            if (sub === 'setup') {
+                document.getElementById('sub-tab-zone-setup').classList.remove('hidden');
+                document.getElementById('btn-sub-zone-setup').classList.add('active-sub-tab');
+                document.getElementById('btn-sub-zone-setup').classList.remove('text-slate-500');
+            } else if (sub === 'manager') {
+                document.getElementById('sub-tab-domain-manager').classList.remove('hidden');
+                document.getElementById('btn-sub-domain-manager').classList.add('active-sub-tab');
+                document.getElementById('btn-sub-domain-manager').classList.remove('text-slate-500');
+                loadManagerDomains();
+            }
+        }
 
         async function loadZonesAndWorkers() {
             const idx = document.getElementById('zoneAccountSelect').value;
@@ -3129,11 +3449,408 @@ function renderHTML() {
                     if (currentWorkers.length === 0) workerSelect.innerHTML = '<option value="">No workers found</option>';
 
                     renderZoneInfo();
+
+                    // Also refresh manager domains if tab is active
+                    if (!document.getElementById('sub-tab-domain-manager').classList.contains('hidden')) {
+                        loadManagerDomains();
+                    }
                 } else {
                     infoContainer.innerHTML = \`<div class="text-center py-10 text-red-500">Error loading data.</div>\`;
                 }
             } catch (e) {
                 infoContainer.innerHTML = \`<div class="text-center py-10 text-red-500">\${e.message}</div>\`;
+            }
+        }
+
+        async function loadManagerDomains() {
+            const idx = document.getElementById('zoneAccountSelect').value;
+            const list = document.getElementById('managerDomainsList');
+            if (idx === "") {
+                list.innerHTML = '<div class="text-center py-10 text-slate-500">Pilih akun terlebih dahulu.</div>';
+                return;
+            }
+
+            const acc = accounts[idx];
+            list.innerHTML = '<div class="text-center py-10"><i class="fa-solid fa-circle-notch fa-spin text-3xl text-emerald-500 mb-4"></i><p class="text-slate-500 text-sm">Memuat domain...</p></div>';
+
+            try {
+                const res = await fetch(API_BASE_URL + '/api/listZones', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: acc.email, apiKey: acc.apiKey, accountId: acc.accountId, status: "" })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    managerDomains = data.result || [];
+                    renderManagerDomains(managerDomains);
+                } else {
+                    list.innerHTML = \`<div class="text-center py-10 text-red-500">\${data.message}</div>\`;
+                }
+            } catch (e) {
+                list.innerHTML = \`<div class="text-center py-10 text-red-500">\${e.message}</div>\`;
+            }
+        }
+
+        function renderManagerDomains(domains) {
+            const list = document.getElementById('managerDomainsList');
+            if (!domains || domains.length === 0) {
+                list.innerHTML = '<div class="text-center py-10 text-slate-500 bg-[#0d1117] rounded-2xl border border-dashed border-slate-700">Belum ada domain.</div>';
+                return;
+            }
+
+            list.innerHTML = domains.map(d => {
+                const statusColor = d.status === 'active' ? 'bg-[#10b981]/20 text-[#10b981]' : (d.status === 'pending' ? 'bg-orange-500/20 text-orange-500' : 'bg-slate-500/20 text-slate-400');
+                const planName = (d.plan && d.plan.name) ? d.plan.name : "Free Website";
+
+                return \`
+                <div class="bg-[#111722] rounded-xl border border-slate-800 p-4 sm:p-5 flex flex-col hover:border-slate-600 transition-all">
+    <div class="flex justify-between items-center gap-2 mb-4">
+    <span class="text-[9px] sm:text-[10px] px-2 sm:px-3 py-0.5 sm:py-1 rounded-full \${statusColor} font-black uppercase tracking-widest whitespace-nowrap">\${d.status}</span>
+    <h4 class="text-xs sm:text-sm font-bold text-white tracking-wide break-words text-right">\${d.name}</h4>
+</div>
+
+    <div class="bg-black/50 rounded-lg p-2 sm:p-2.5 flex justify-between items-center border border-slate-800/50 mb-3">
+        <div class="flex items-center gap-1.5 sm:gap-2 overflow-hidden text-slate-400 text-[10px] sm:text-xs font-mono">
+            <i class="fa-solid fa-fingerprint text-slate-600 text-[10px] sm:text-xs"></i>
+            <span class="truncate">\${d.id.substring(0,12)}...\${d.id.substring(28,36)}</span>
+        </div>
+        <button onclick="copyToClipboard('\${d.id}', this)" class="text-slate-500 hover:text-white px-1.5 sm:px-2 transition-all">
+            <i class="fa-solid fa-copy text-xs sm:text-sm"></i>
+        </button>
+    </div>
+
+    <div class="flex items-center gap-2 text-slate-400 text-[11px] sm:text-xs mb-4 sm:mb-5 font-medium">
+        <i class="fa-solid fa-layer-group text-[10px] sm:text-xs"></i> 
+        <span class="truncate">Paket: \${planName}</span>
+    </div>
+
+    <!-- Baris 1: Nameservers (kiri) + Kelola DNS (kanan) -->
+    <div class="flex gap-2 sm:gap-3 mb-2 sm:mb-3">
+        <button onclick="showNameserversModal('\${d.id}')" class="flex-1 bg-[#161b22] hover:bg-slate-800 text-white py-2 sm:py-2.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all border border-slate-700 flex items-center justify-center gap-1.5 sm:gap-2">
+            <i class="fa-solid fa-server text-[9px] sm:text-xs"></i> 
+            <span>Nameservers</span>
+        </button>
+        <button onclick="openDnsManager('\${d.id}', '\${d.name}')" class="flex-1 bg-[#161b22] hover:bg-slate-800 text-white py-2 sm:py-2.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all border border-slate-700 flex items-center justify-center gap-1.5 sm:gap-2">
+            <i class="fa-solid fa-network-wired text-[9px] sm:text-xs"></i> 
+            <span>Kelola DNS</span>
+        </button>
+    </div>
+
+    <!-- Baris 2: Hapus (full width) -->
+    <div>
+        <button onclick="deleteManagerDomain('\${d.id}', '\${d.name}')" class="w-full bg-red-950/30 hover:bg-red-900/50 text-red-400 py-2 sm:py-2.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all border border-red-900/30 flex items-center justify-center gap-1.5 sm:gap-2">
+            <i class="fa-solid fa-trash-can text-[9px] sm:text-xs"></i> 
+            <span>Hapus</span>
+        </button>
+    </div>
+</div>
+                \`;
+            }).join('');
+        }
+
+        async function addNewDomain() {
+            const domainInput = document.getElementById('newDomainInput');
+            const zoneName = domainInput.value.trim();
+            const idx = document.getElementById('zoneAccountSelect').value;
+            const btn = document.getElementById('btnAddDomain');
+
+            if (idx === "") return alert("Pilih akun terlebih dahulu!");
+            if (!zoneName) return alert("Masukkan nama domain!");
+            if (!zoneName.includes('.')) return alert("Format domain tidak valid!");
+
+            const acc = accounts[idx];
+            const originalHtml = btn.innerHTML;
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Menambahkan...';
+
+            try {
+                const res = await fetch(API_BASE_URL + '/api/createZone', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: acc.email, apiKey: acc.apiKey, accountId: acc.accountId, zoneName: zoneName })
+                });
+                const data = await res.json();
+
+                if (data.success && data.result) {
+                    domainInput.value = '';
+                    loadManagerDomains();
+                    // Load zones for the setup dropdown as well
+                    loadZonesAndWorkers();
+
+                    // Automatically show nameservers modal if available
+                    if (data.result.name_servers && data.result.name_servers.length > 0) {
+                        managerDomains.push(data.result); // Temporarily add so modal can find it if list hasn't refreshed yet
+                        showNameserversModal(data.result.id);
+                    } else {
+                        alert("Domain berhasil ditambahkan!", "success");
+                    }
+                } else {
+                    alert("Gagal menambahkan domain: " + data.message);
+                }
+            } catch (e) {
+                alert("Error: " + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        }
+
+        async function deleteManagerDomain(zoneId, zoneName) {
+            if (!confirm(\`Anda yakin ingin menghapus domain \${zoneName} dari Cloudflare?\`)) return;
+
+            const idx = document.getElementById('zoneAccountSelect').value;
+            const acc = accounts[idx];
+
+            try {
+                const res = await fetch(API_BASE_URL + '/api/deleteZone', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: acc.email, apiKey: acc.apiKey, accountId: acc.accountId, zoneId: zoneId })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    alert(\`Domain \${zoneName} berhasil dihapus\`, "success");
+                    loadManagerDomains();
+                    loadZonesAndWorkers(); // refresh the dropdowns too
+                } else {
+                    alert("Gagal menghapus domain: " + data.message);
+                }
+            } catch (e) {
+                alert("Error: " + e.message);
+            }
+        }
+
+        function showNameserversModal(zoneId) {
+            const domain = managerDomains.find(d => d.id === zoneId);
+            if (!domain) return alert("Data domain tidak ditemukan");
+
+            document.getElementById('nsModalDomainName').innerText = domain.name;
+            const nsList = document.getElementById('nsModalList');
+
+            if (domain.name_servers && domain.name_servers.length > 0) {
+                nsList.innerHTML = domain.name_servers.map(ns => \`
+                    <div onclick="copyToClipboard('\${ns}', this)" class="bg-[#161b22] border border-slate-700/50 p-3 rounded-lg flex justify-between items-center cursor-pointer hover:border-slate-500 transition-all group">
+                        <span class="text-sm font-mono text-slate-300 tracking-wide">\${ns}</span>
+                        <div class="bg-slate-800 p-2 rounded-md group-hover:bg-slate-700 transition-all">
+                            <i class="fa-solid fa-copy text-slate-400 text-xs"></i>
+                        </div>
+                    </div>
+                \`).join('');
+            } else {
+                nsList.innerHTML = '<div class="text-slate-500 text-sm italic py-2">Nameserver tidak tersedia. Status domain mungkin aktif atau menggunakan setup khusus.</div>';
+            }
+
+            document.getElementById('nameserversModal').classList.remove('hidden');
+        }
+
+        function hideNameserversModal() {
+            document.getElementById('nameserversModal').classList.add('hidden');
+        }
+
+        let currentDnsZoneId = null;
+        let currentDnsRecords = [];
+
+        async function openDnsManager(zoneId, zoneName) {
+            currentDnsZoneId = zoneId;
+            document.getElementById('dnsModalTitle').innerText = \`DNS records for \${zoneName}\`;
+            document.getElementById('dnsRecordsModal').classList.remove('hidden');
+            document.getElementById('addDnsRecordForm').classList.add('hidden');
+
+            await fetchAndRenderDnsRecords(zoneId);
+        }
+
+        function closeDnsManager() {
+            document.getElementById('dnsRecordsModal').classList.add('hidden');
+            currentDnsZoneId = null;
+            currentDnsRecords = [];
+        }
+
+        async function fetchAndRenderDnsRecords(zoneId) {
+            const idx = document.getElementById('zoneAccountSelect').value;
+            const acc = accounts[idx];
+            const tbody = document.getElementById('dnsRecordsTableBody');
+
+            tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-10 text-center text-slate-500"><i class="fa-solid fa-circle-notch fa-spin text-xl text-blue-500 mb-2 block"></i> Loading DNS records...</td></tr>';
+
+            try {
+                const res = await fetch(API_BASE_URL + '/api/listDnsRecords', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: acc.email, apiKey: acc.apiKey, accountId: acc.accountId, zoneId: zoneId })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    currentDnsRecords = data.result || [];
+                    renderDnsRecordsTable(currentDnsRecords);
+                } else {
+                    tbody.innerHTML = \`<tr><td colspan="6" class="px-4 py-10 text-center text-red-500">Failed to load records: \${data.message}</td></tr>\`;
+                }
+            } catch (e) {
+                tbody.innerHTML = \`<tr><td colspan="6" class="px-4 py-10 text-center text-red-500">Error: \${e.message}</td></tr>\`;
+            }
+        }
+
+        function renderDnsRecordsTable(records) {
+            const tbody = document.getElementById('dnsRecordsTableBody');
+            document.getElementById('dnsRecordsCount').innerText = \`\${records.length} records\`;
+
+            if (records.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-10 text-center text-slate-500">No DNS records found.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = records.map(r => {
+                const isProxied = r.proxied;
+                const proxyIcon = isProxied ? '<i class="fa-brands fa-cloudflare text-orange-500 text-lg"></i> <span class="text-orange-500">Proxied</span>' : '<i class="fa-solid fa-arrow-turn-down text-slate-500"></i> <span class="text-slate-400">DNS only</span>';
+                let ttlText = r.ttl === 1 ? 'Auto' : (r.ttl >= 3600 ? \`\${r.ttl/3600} hr\` : \`\${r.ttl/60} min\`);
+
+                return \`
+                <tr class="hover:bg-[#161b22] transition-colors group">
+                    <td class="px-4 py-3 font-mono text-xs text-white">\${r.type}</td>
+                    <td class="px-4 py-3 font-medium text-white">\${r.name}</td>
+                    <td class="px-4 py-3 font-mono text-xs text-slate-400 truncate max-w-[200px]" title="\${r.content}">\${r.content}</td>
+                    <td class="px-4 py-3 text-xs flex items-center gap-1.5">\${proxyIcon}</td>
+                    <td class="px-4 py-3 text-xs text-slate-400">\${ttlText}</td>
+                    <td class="px-4 py-3 text-right">
+                        <button onclick="deleteDnsRecord('\${r.id}', '\${r.name}')" class="text-slate-500 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 px-2 py-1">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </td>
+                </tr>
+                \`;
+            }).join('');
+        }
+
+        function filterDnsRecords() {
+            const query = document.getElementById('dnsSearchInput').value.toLowerCase();
+            if (!query) {
+                renderDnsRecordsTable(currentDnsRecords);
+                return;
+            }
+            const filtered = currentDnsRecords.filter(r =>
+                r.name.toLowerCase().includes(query) ||
+                r.content.toLowerCase().includes(query) ||
+                r.type.toLowerCase().includes(query)
+            );
+            renderDnsRecordsTable(filtered);
+        }
+
+        function openAddDnsModal() {
+            document.getElementById('addDnsRecordForm').classList.remove('hidden');
+            // reset form
+            document.getElementById('newDnsType').value = 'A';
+            document.getElementById('newDnsName').value = '';
+            document.getElementById('newDnsContent').value = '';
+            document.getElementById('newDnsTtl').value = '1';
+
+            const proxiedCheckbox = document.getElementById('newDnsProxied');
+            if(!proxiedCheckbox.checked) {
+                proxiedCheckbox.checked = true;
+                toggleProxyIcon(proxiedCheckbox);
+            }
+        }
+
+        function closeAddDnsModal() {
+            document.getElementById('addDnsRecordForm').classList.add('hidden');
+        }
+
+        function toggleProxyIcon(checkbox) {
+            const bg = document.getElementById('proxyToggleBg');
+            const dot = document.getElementById('proxyToggleDot');
+            const icon = document.getElementById('proxyIcon');
+            const label = document.getElementById('proxyLabel');
+
+            if (checkbox.checked) {
+                bg.classList.remove('bg-slate-600');
+                bg.classList.add('bg-orange-500');
+                dot.classList.remove('-translate-x-5');
+
+                icon.className = 'fa-brands fa-cloudflare text-orange-500 text-lg';
+                label.innerText = 'Proxied';
+                label.className = 'text-orange-500';
+            } else {
+                bg.classList.remove('bg-orange-500');
+                bg.classList.add('bg-slate-600');
+                dot.classList.add('-translate-x-5');
+
+                icon.className = 'fa-solid fa-arrow-turn-down text-slate-500';
+                label.innerText = 'DNS only';
+                label.className = 'text-slate-400';
+            }
+        }
+
+        async function submitAddDnsRecord() {
+            if (!currentDnsZoneId) return;
+
+            const idx = document.getElementById('zoneAccountSelect').value;
+            const acc = accounts[idx];
+
+            const type = document.getElementById('newDnsType').value;
+            const name = document.getElementById('newDnsName').value.trim();
+            const content = document.getElementById('newDnsContent').value.trim();
+            const proxied = document.getElementById('newDnsProxied').checked;
+            const ttl = parseInt(document.getElementById('newDnsTtl').value);
+
+            if (!name || !content) return alert('Name and Content are required!');
+
+            const btn = document.getElementById('btnSaveDnsRecord');
+            const originalText = btn.innerText;
+            btn.innerText = 'Saving...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch(API_BASE_URL + '/api/createDnsRecord', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: acc.email, apiKey: acc.apiKey, accountId: acc.accountId,
+                        zoneId: currentDnsZoneId, type, name, content, proxied, ttl
+                    })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    closeAddDnsModal();
+                    await fetchAndRenderDnsRecords(currentDnsZoneId);
+                    alert('DNS record added successfully', 'success');
+                } else {
+                    alert('Failed to add DNS record: ' + data.message);
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        async function deleteDnsRecord(recordId, recordName) {
+            if (!confirm(\`Are you sure you want to delete the DNS record for \${recordName}?\`)) return;
+
+            const idx = document.getElementById('zoneAccountSelect').value;
+            const acc = accounts[idx];
+
+            try {
+                const res = await fetch(API_BASE_URL + '/api/deleteDnsRecord', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: acc.email, apiKey: acc.apiKey, accountId: acc.accountId,
+                        zoneId: currentDnsZoneId, recordId: recordId
+                    })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    alert(\`DNS record \${recordName} deleted\`, 'success');
+                    await fetchAndRenderDnsRecords(currentDnsZoneId);
+                } else {
+                    alert('Failed to delete DNS record: ' + data.message);
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
             }
         }
 
@@ -3357,8 +4074,7 @@ function renderHTML() {
                     </div>
                     <h4 class="font-bold text-white mb-1 truncate">\${b.name}</h4>
                     <p class="text-[10px] text-slate-500 font-mono mb-4">Created: \${new Date(b.creation_date).toLocaleDateString()}</p>
-                    <button onclick="viewBucket('\${b.name}')" class="w-full bg-slate-800 hover:bg-slate-700 py-2 rounded-xl text-[10px] font-bold text-white transition-all">MANAGE OBJECTS</button>
-                </div>
+                    </div>
             \`).join('');
         }
 
@@ -3411,15 +4127,15 @@ function renderHTML() {
                 });
                 const data = await res.json();
                 if (data.success) {
-                    showToast('Folder created!', 'success');
+                    alert('Folder created!', 'success');
                     document.getElementById('r2CreateFolderModal').classList.add('hidden');
                     document.getElementById('r2NewFolderName').value = '';
                     loadR2Objects();
                 } else {
-                    showToast('Failed: ' + data.message, 'error');
+                    alert('Failed: ' + data.message, 'error');
                 }
             } catch (e) {
-                showToast('Error: ' + e.message, 'error');
+                alert('Error: ' + e.message, 'error');
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = originalHtml;
@@ -3428,7 +4144,7 @@ function renderHTML() {
 
         async function createR2Bucket() {
             const name = document.getElementById('newBucketName').value.trim();
-            if (!name) return showToast("Bucket name is required!", "error");
+            if (!name) return alert("Bucket name is required!", "error");
 
             const idx = document.getElementById('r2AccountSelect').value;
             const acc = accounts[idx];
@@ -3446,14 +4162,14 @@ function renderHTML() {
                 });
                 const data = await res.json();
                 if (data.success) {
-                    showToast("Bucket created successfully!", "success");
+                    alert("Bucket created successfully!", "success");
                     hideCreateBucketModal();
                     loadR2Buckets();
                 } else {
-                    showToast("Failed: " + data.message, "error");
+                    alert("Failed: " + data.message, "error");
                 }
             } catch (e) {
-                showToast("Error: " + e.message, "error");
+                alert("Error: " + e.message, "error");
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = originalHtml;
@@ -3479,14 +4195,14 @@ function renderHTML() {
                 });
                 const data = await res.json();
                 if (data.success) {
-                    showToast('Bucket berhasil dihapus!', 'success');
+                    alert('Bucket berhasil dihapus!', 'success');
                     allR2Buckets = allR2Buckets.filter(b => b.name !== name);
                     renderR2Buckets(allR2Buckets);
                 } else {
-                    showToast('Gagal hapus: ' + data.message, 'error');
+                    alert('Gagal hapus: ' + data.message, 'error');
                 }
             } catch (e) {
-                showToast('Error: ' + e.message, 'error');
+                alert('Error: ' + e.message, 'error');
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = originalHtml;
@@ -3514,7 +4230,7 @@ function renderHTML() {
             const workerName = document.getElementById('r2WorkerName').value.trim() || 'r2';
 
             if (!currentActiveBucket) {
-                showToast('Pilih bucket terlebih dahulu', 'error');
+                alert('Pilih bucket terlebih dahulu', 'error');
                 return;
             }
 
@@ -3542,12 +4258,12 @@ function renderHTML() {
                 });
                 const data = await res.json();
                 if (data.success) {
-                    showToast('Worker R2 Proxy berhasil dikonfigurasi!', 'success');
+                    alert('Worker R2 Proxy berhasil dikonfigurasi!', 'success');
                 } else {
                     throw new Error(data.message);
                 }
             } catch (e) {
-                showToast('Gagal konfigurasi: ' + e.message, 'error');
+                alert('Gagal konfigurasi: ' + e.message, 'error');
             } finally {
                 btn.innerHTML = originalContent;
                 btn.disabled = false;
@@ -3560,7 +4276,7 @@ function renderHTML() {
             const workerName = document.getElementById('r2WorkerName').value.trim() || 'r2';
 
             if (!currentActiveBucket) {
-                showToast('Pilih bucket terlebih dahulu', 'error');
+                alert('Pilih bucket terlebih dahulu', 'error');
                 return;
             }
 
@@ -3585,13 +4301,13 @@ function renderHTML() {
                 });
                 const data = await res.json();
                 if (data.success) {
-                    showToast('Worker R2 Proxy berhasil di-deploy!', 'success');
+                    alert('Worker R2 Proxy berhasil di-deploy!', 'success');
                     updateR2BaseUrl();
                 } else {
                     throw new Error(data.message);
                 }
             } catch (e) {
-                showToast('Gagal deploy: ' + e.message, 'error');
+                alert('Gagal deploy: ' + e.message, 'error');
             } finally {
                 btn.innerHTML = originalContent;
                 btn.disabled = false;
@@ -3717,18 +4433,18 @@ function renderHTML() {
                     });
                     const data = await res.json();
                     if (data.success) {
-                        showToast('File uploaded successfully!', 'success');
+                        alert('File uploaded successfully!', 'success');
                         loadR2Objects();
                         setTimeout(() => loadR2Objects(), 1000);
                     } else {
-                        showToast('Upload failed: ' + data.message, 'error');
+                        alert('Upload failed: ' + data.message, 'error');
                     }
                     event.target.value = '';
                 };
-                reader.onerror = () => showToast('File reading error', 'error');
+                reader.onerror = () => alert('File reading error', 'error');
                 reader.readAsArrayBuffer(file);
             } catch (e) {
-                showToast('Error: ' + e.message, 'error');
+                alert('Error: ' + e.message, 'error');
             }
         }
 
@@ -3751,14 +4467,14 @@ function renderHTML() {
                 });
                 const data = await res.json();
                 if (data.success) {
-                    showToast('File berhasil dihapus!', 'success');
+                    alert('File berhasil dihapus!', 'success');
                     currentBucketObjects = currentBucketObjects.filter(o => o.key !== key);
                     renderR2Objects(currentBucketObjects);
                 } else {
-                    showToast('Gagal hapus: ' + data.message, 'error');
+                    alert('Gagal hapus: ' + data.message, 'error');
                 }
             } catch (e) {
-                showToast('Error: ' + e.message, 'error');
+                alert('Error: ' + e.message, 'error');
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = originalHtml;
