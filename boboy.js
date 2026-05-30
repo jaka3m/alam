@@ -942,7 +942,7 @@ async function handleApiRequest(request, env) {
       case '/api/listDnsRecords':
         try {
           const res = await client.listDnsRecords(body.zoneId);
-          return new Response(JSON.stringify({ success: true, result: res }), {
+          return new Response(JSON.stringify(res), {
             headers: { ...corsHeaders, "Content-Type": "application/json" }
           });
         } catch (e) {
@@ -954,7 +954,7 @@ async function handleApiRequest(request, env) {
       case '/api/createDnsRecord':
         try {
           const res = await client.createDnsRecord(body.zoneId, body.type, body.name, body.content, body.proxied, body.ttl);
-          return new Response(JSON.stringify({ success: true, result: res }), {
+          return new Response(JSON.stringify(res), {
             headers: { ...corsHeaders, "Content-Type": "application/json" }
           });
         } catch (e) {
@@ -965,8 +965,8 @@ async function handleApiRequest(request, env) {
 
       case '/api/deleteDnsRecord':
         try {
-          await client.deleteDnsRecord(body.zoneId, body.recordId);
-          return new Response(JSON.stringify({ success: true, message: "Record deleted" }), {
+          const res = await client.deleteDnsRecord(body.zoneId, body.recordId);
+          return new Response(JSON.stringify(res), {
             headers: { ...corsHeaders, "Content-Type": "application/json" }
           });
         } catch (e) {

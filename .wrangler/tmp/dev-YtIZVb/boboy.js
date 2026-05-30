@@ -829,7 +829,7 @@ async function handleApiRequest(request, env) {
       case "/api/listDnsRecords":
         try {
           const res = await client.listDnsRecords(body.zoneId);
-          return new Response(JSON.stringify({ success: true, result: res }), {
+          return new Response(JSON.stringify(res), {
             headers: { ...corsHeaders, "Content-Type": "application/json" }
           });
         } catch (e) {
@@ -841,7 +841,7 @@ async function handleApiRequest(request, env) {
       case "/api/createDnsRecord":
         try {
           const res = await client.createDnsRecord(body.zoneId, body.type, body.name, body.content, body.proxied, body.ttl);
-          return new Response(JSON.stringify({ success: true, result: res }), {
+          return new Response(JSON.stringify(res), {
             headers: { ...corsHeaders, "Content-Type": "application/json" }
           });
         } catch (e) {
@@ -852,8 +852,8 @@ async function handleApiRequest(request, env) {
         }
       case "/api/deleteDnsRecord":
         try {
-          await client.deleteDnsRecord(body.zoneId, body.recordId);
-          return new Response(JSON.stringify({ success: true, message: "Record deleted" }), {
+          const res = await client.deleteDnsRecord(body.zoneId, body.recordId);
+          return new Response(JSON.stringify(res), {
             headers: { ...corsHeaders, "Content-Type": "application/json" }
           });
         } catch (e) {
@@ -4980,7 +4980,7 @@ var jsonError = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx)
 }, "jsonError");
 var middleware_miniflare3_json_error_default = jsonError;
 
-// .wrangler/tmp/bundle-BGHUjX/middleware-insertion-facade.js
+// .wrangler/tmp/bundle-6u1OxP/middleware-insertion-facade.js
 var __INTERNAL_WRANGLER_MIDDLEWARE__ = [
   middleware_ensure_req_body_drained_default,
   middleware_miniflare3_json_error_default
@@ -5012,7 +5012,7 @@ function __facade_invoke__(request, env, ctx, dispatch, finalMiddleware) {
 }
 __name(__facade_invoke__, "__facade_invoke__");
 
-// .wrangler/tmp/bundle-BGHUjX/middleware-loader.entry.ts
+// .wrangler/tmp/bundle-6u1OxP/middleware-loader.entry.ts
 var __Facade_ScheduledController__ = class ___Facade_ScheduledController__ {
   constructor(scheduledTime, cron, noRetry) {
     this.scheduledTime = scheduledTime;

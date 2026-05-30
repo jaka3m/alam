@@ -3,5 +3,5 @@
 ───────────────────
 ⎔ Starting local server...
 [wrangler:info] Ready on http://localhost:8787
-[wrangler:info] GET / 200 OK (68ms)
-[wrangler:info] POST /api/proxyFetch 200 OK (701ms)
+[wrangler:info] GET / 200 OK (35ms)
+[wrangler:info] POST /api/proxyFetch 200 OK (655ms)
