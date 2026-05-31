@@ -1,7 +1,7 @@
 import { connect } from "cloudflare:sockets";
 
 let cachedAccountId = null;
-let cachedZoneId = null;
+let cachedZoneId = {};
 
 const proxyListURL = 'https://r2.jamu.workers.dev/raw/proxyList.txt';
 
@@ -24,9 +24,7 @@ function getScriptConfig(env, request) {
   };
 }
 
-async function ensureCfConfig(config) {
-  if (cachedAccountId && cachedZoneId) return;
-
+async function ensureCfConfig(config, rootDomain = config.ROOT_DOMAIN) {
   const headers = {
     "X-Auth-Email": config.API_EMAIL,
     "X-Auth-Key": config.API_KEY,
@@ -34,15 +32,15 @@ async function ensureCfConfig(config) {
   };
 
   // Try to get Zone ID and Account ID from ROOT_DOMAIN
-  if (!cachedZoneId || !cachedAccountId) {
+  if (!cachedZoneId[rootDomain] || !cachedAccountId) {
     try {
       // First try exact match
-      let res = await fetch(`https://api.cloudflare.com/client/v4/zones?name=${config.ROOT_DOMAIN}`, { headers });
+      let res = await fetch(`https://api.cloudflare.com/client/v4/zones?name=${rootDomain}`, { headers });
       let data = await res.json();
 
       if (!data.success || data.result.length === 0) {
         // Try to find zone by climbing up domain parts (e.g. if ROOT_DOMAIN is sub.example.com)
-        const parts = config.ROOT_DOMAIN.split('.');
+        const parts = rootDomain.split('.');
         if (parts.length > 2) {
             const rootName = parts.slice(-2).join('.');
             res = await fetch(`https://api.cloudflare.com/client/v4/zones?name=${rootName}`, { headers });
@@ -51,9 +49,9 @@ async function ensureCfConfig(config) {
       }
 
       if (data.success && data.result.length > 0) {
-        cachedZoneId = data.result[0].id;
+        cachedZoneId[rootDomain] = data.result[0].id;
         cachedAccountId = data.result[0].account.id;
-        console.log(`Config Found - Zone: ${cachedZoneId}, Account: ${cachedAccountId}`);
+        console.log(`Config Found - Zone: ${cachedZoneId[rootDomain]}, Account: ${cachedAccountId}`);
       }
     } catch (e) {
       console.error("Error fetching Zone/Account ID:", e);
@@ -95,7 +93,7 @@ class CloudflareApi {
   }
   async getDomainList() {
     try {
-      await ensureCfConfig(this.config);
+      await ensureCfConfig(this.config, this.config.ROOT_DOMAIN); // Default domain list uses default config
       if (!cachedAccountId) return [];
       const url = `https://api.cloudflare.com/client/v4/accounts/${cachedAccountId}/pages/projects/${this.config.SERVICE_NAME}/domains`;
       const res = await fetch(url, {
@@ -114,7 +112,7 @@ class CloudflareApi {
   }
   async getDomain(domainName) {
     try {
-      await ensureCfConfig(this.config);
+      await ensureCfConfig(this.config, this.config.ROOT_DOMAIN);
       if (!cachedAccountId) return null;
       const url = `https://api.cloudflare.com/client/v4/accounts/${cachedAccountId}/pages/projects/${this.config.SERVICE_NAME}/domains/${domainName}`;
       const res = await fetch(url, {
@@ -130,17 +128,17 @@ class CloudflareApi {
       return null;
     }
   }
-  async registerDomain(domain) {
-    console.log(`[Register] Domain input: ${domain}`);
+  async registerDomain(domain, rootDomain = this.config.ROOT_DOMAIN) {
+    console.log(`[Register] Domain input: ${domain}, Root Domain: ${rootDomain}`);
     try {
-      await ensureCfConfig(this.config);
+      await ensureCfConfig(this.config, rootDomain);
       if (!cachedAccountId) {
         console.error("[Register] Error: cachedAccountId is missing");
         return 500;
       }
 
       domain = domain.toLowerCase().trim();
-      const suffix = `.${this.config.SERVICE_NAME}.${this.config.ROOT_DOMAIN}`;
+      const suffix = `.${this.config.SERVICE_NAME}.${rootDomain}`;
       let fullDomain = domain.endsWith(suffix) ? domain : domain + suffix;
 
       console.log(`[Register] Processing: ${fullDomain}`);
@@ -170,7 +168,7 @@ class CloudflareApi {
       // 2. Create/Update DNS CNAME
       console.log(`[Register] Step 2: Provisioning DNS record...`);
       const targetContent = `${this.config.SERVICE_NAME}.pages.dev`;
-      const dnsId = await this.createDnsRecord(fullDomain, targetContent);
+      const dnsId = await this.createDnsRecord(fullDomain, targetContent, 'CNAME', rootDomain);
       if (!dnsId) {
         console.warn(`[Register] Step 2 warning: DNS record creation did not return an ID`);
       } else {
@@ -183,7 +181,7 @@ class CloudflareApi {
 
       // 4. Trigger Re-validation (PATCH)
       console.log(`[Register] Step 4: Triggering re-validation...`);
-      const patchRes = await this.patchDomain(fullDomain);
+      const patchRes = await this.patchDomain(fullDomain, rootDomain);
       console.log(`[Register] Step 4 status: ${patchRes}`);
 
       return 200;
@@ -192,9 +190,9 @@ class CloudflareApi {
       return 500;
     }
   }
-  async deleteDomain(domainName) {
+  async deleteDomain(domainName, rootDomain = this.config.ROOT_DOMAIN) {
     try {
-      await ensureCfConfig(this.config);
+      await ensureCfConfig(this.config, rootDomain);
       if (!cachedAccountId) return 500;
       const url = `https://api.cloudflare.com/client/v4/accounts/${cachedAccountId}/pages/projects/${this.config.SERVICE_NAME}/domains/${domainName}`;
       const res = await fetch(url, {
@@ -204,9 +202,9 @@ class CloudflareApi {
 
       if (res.status === 200 || res.status === 204) {
         // Automatically cleanup DNS record
-        const recordId = await this.getDnsRecordId(domainName);
+        const recordId = await this.getDnsRecordId(domainName, rootDomain);
         if (recordId) {
-          await this.deleteDnsRecord(recordId);
+          await this.deleteDnsRecord(recordId, rootDomain);
         }
       }
 
@@ -216,9 +214,9 @@ class CloudflareApi {
       return 500;
     }
   }
-  async patchDomain(domainName) {
+  async patchDomain(domainName, rootDomain = this.config.ROOT_DOMAIN) {
     try {
-      await ensureCfConfig(this.config);
+      await ensureCfConfig(this.config, rootDomain);
       if (!cachedAccountId) return 500;
       const url = `https://api.cloudflare.com/client/v4/accounts/${cachedAccountId}/pages/projects/${this.config.SERVICE_NAME}/domains/${domainName}`;
       const res = await fetch(url, {
@@ -231,20 +229,21 @@ class CloudflareApi {
       return 500;
     }
   }
-  async createDnsRecord(name, content, type = 'CNAME') {
+  async createDnsRecord(name, content, type = 'CNAME', rootDomain = this.config.ROOT_DOMAIN) {
     console.log(`createDnsRecord: ${name} -> ${content}`);
     try {
-      await ensureCfConfig(this.config);
-      if (!cachedZoneId) {
+      await ensureCfConfig(this.config, rootDomain);
+      const zoneId = cachedZoneId[rootDomain];
+      if (!zoneId) {
         console.error("No cachedZoneId for DNS record creation");
         return null;
       }
 
-      const existingId = await this.getDnsRecordId(name);
+      const existingId = await this.getDnsRecordId(name, rootDomain);
       console.log(`Existing record ID for ${name}: ${existingId}`);
       const url = existingId
-        ? `https://api.cloudflare.com/client/v4/zones/${cachedZoneId}/dns_records/${existingId}`
-        : `https://api.cloudflare.com/client/v4/zones/${cachedZoneId}/dns_records`;
+        ? `https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records/${existingId}`
+        : `https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records`;
 
       const res = await fetch(url, {
         method: existingId ? "PUT" : "POST",
@@ -264,11 +263,12 @@ class CloudflareApi {
       return null;
     }
   }
-  async getDnsRecordId(name) {
+  async getDnsRecordId(name, rootDomain = this.config.ROOT_DOMAIN) {
     try {
-      await ensureCfConfig(this.config);
-      if (!cachedZoneId) return null;
-      const url = `https://api.cloudflare.com/client/v4/zones/${cachedZoneId}/dns_records?name=${name}`;
+      await ensureCfConfig(this.config, rootDomain);
+      const zoneId = cachedZoneId[rootDomain];
+      if (!zoneId) return null;
+      const url = `https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records?name=${name}`;
       const res = await fetch(url, { headers: this.headers });
       const data = await res.json();
       if (data.success && data.result.length > 0) {
@@ -280,11 +280,12 @@ class CloudflareApi {
       return null;
     }
   }
-  async deleteDnsRecord(recordId) {
+  async deleteDnsRecord(recordId, rootDomain = this.config.ROOT_DOMAIN) {
     try {
-      await ensureCfConfig(this.config);
-      if (!cachedZoneId) return 500;
-      const url = `https://api.cloudflare.com/client/v4/zones/${cachedZoneId}/dns_records/${recordId}`;
+      await ensureCfConfig(this.config, rootDomain);
+      const zoneId = cachedZoneId[rootDomain];
+      if (!zoneId) return 500;
+      const url = `https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records/${recordId}`;
       const res = await fetch(url, {
         method: "DELETE",
         headers: this.headers,
@@ -692,6 +693,10 @@ const SIDEBAR_COMPONENT = `
               <!-- Tab Content: Add -->
               <div x-show="wildcardTab === 'add'" class="flex flex-col gap-4 py-4">
                   <div class="flex flex-col gap-2">
+                      <label class="text-sm font-semibold text-gray-400">Root Domain</label>
+                      <select id="root-domain-select" class="w-full px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-gray-800 border border-gray-700 text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"></select>
+                  </div>
+                  <div class="flex flex-col gap-2">
                       <label class="text-sm font-semibold text-gray-400">Prefix Domain</label>
                       <input id="new-domain-input"
                              type="text"
@@ -806,10 +811,30 @@ const SIDEBAR_COMPONENT = `
             nextBtn.onclick = () => { if(domainPage < totalPages) { domainPage++; renderDomains(); } };
         }
 
+        async function loadZones() {
+            try {
+                const response = await fetch('/api/v1/zones');
+                if (response.ok) {
+                    const zones = await response.json();
+                    const select = document.getElementById('root-domain-select');
+                    select.innerHTML = '';
+                    zones.forEach(zone => {
+                        const option = document.createElement('option');
+                        option.value = zone;
+                        option.textContent = zone;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading zones:', error);
+            }
+        }
+
         function toggleWildcardsWindow() {
             const wildcardsWindow = document.getElementById('wildcards-window');
             if (wildcardsWindow.classList.contains('hidden')) {
                 loadDomains();
+                loadZones();
                 wildcardsWindow.classList.remove('hidden');
             } else {
                 wildcardsWindow.classList.add('hidden');
@@ -863,7 +888,7 @@ const SIDEBAR_COMPONENT = `
                 const response = await fetch('/api/v1/domains', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ domain }),
+                    body: JSON.stringify({ domain, rootDomain: document.getElementById('root-domain-select').value }),
                 });
                 if (response.ok) {
                     input.value = '';
@@ -985,6 +1010,34 @@ export default {
       url.pathname = url.pathname.replace(/\/+/g, '/'); // Normalize slashes
 
       // API for wildcard management
+            // API for zones management
+      if (url.pathname === '/api/v1/zones') {
+        const cfApi = new CloudflareApi(config);
+        if (request.method === 'GET') {
+          try {
+            await ensureCfConfig(config);
+            const headers = {
+              "X-Auth-Email": config.API_EMAIL,
+              "X-Auth-Key": config.API_KEY,
+              "Content-Type": "application/json",
+            };
+            const res = await fetch("https://api.cloudflare.com/client/v4/zones?per_page=50", { headers });
+            const data = await res.json();
+            if (data.success) {
+              const zones = data.result.map(z => z.name);
+              return new Response(JSON.stringify(zones), {
+                headers: { 'Content-Type': 'application/json' }
+              });
+            }
+            return new Response(JSON.stringify([]), { headers: { 'Content-Type': 'application/json' } });
+          } catch (e) {
+            return new Response(JSON.stringify([]), { headers: { 'Content-Type': 'application/json' }, status: 500 });
+          }
+        }
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      // API for wildcard management
       if (url.pathname.startsWith(atob('L2FwaS92MS9kb21haW5z'))) {
         const cfApi = new CloudflareApi(config);
         const pathParts = url.pathname.split('/').filter(Boolean);
@@ -1003,11 +1056,11 @@ export default {
         }
         if (request.method === 'POST') {
           try {
-            const { domain } = await request.json();
+            const { domain, rootDomain } = await request.json();
             if (!domain) {
               return new Response('Domain is required', { status: 400 });
             }
-            const status = await cfApi.registerDomain(domain);
+            const status = await cfApi.registerDomain(domain, rootDomain || config.ROOT_DOMAIN);
             return new Response(null, { status });
           } catch (e) {
             return new Response('Invalid JSON', { status: 400 });
@@ -1022,7 +1075,15 @@ export default {
             if (password !== config.OWNER_PASSWORD) {
                 return new Response('Invalid password', { status: 401 });
             }
-            const status = await cfApi.deleteDomain(domain);
+
+            // Extract root domain from full domain name (e.g. sub.gampangan.gvpn1.web.id)
+            let rootDomain = config.ROOT_DOMAIN;
+            const parts = domain.split('.' + config.SERVICE_NAME + '.');
+            if (parts.length > 1) {
+              rootDomain = parts[1];
+            }
+
+            const status = await cfApi.deleteDomain(domain, rootDomain);
             return new Response(null, { status });
           } catch (e) {
             return new Response('Invalid JSON', { status: 400 });
