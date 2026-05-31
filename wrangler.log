@@ -31,3 +31,12 @@ Cloudflare collects anonymous telemetry about your usage of Wrangler. Learn more
 ⎔ Local server updated and ready
 [wrangler:info] GET / 200 OK (83ms)
 [wrangler:info] POST /api/proxyFetch 200 OK (1090ms)
+⎔ Reloading local server...
+⎔ Local server updated and ready
+⎔ Reloading local server...
+⎔ Local server updated and ready
+⎔ Reloading local server...
+⎔ Local server updated and ready
+[31m✘ [41;31m[[41;97mERROR[41;31m][0m [1mBuild failed with 1 error:[0m
+
+  [31m✘ [41;31m[[41;97mERROR[41;31m][0m [1mCould not resolve "/app/.wrangler/tmp/bundle-2EWZwy/middleware-loader.entry.ts"[0m

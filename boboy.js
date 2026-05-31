@@ -264,8 +264,10 @@ class CfClient {
 
   // --- DNS RECORDS METHODS ---
 
-  async listDnsRecords(zoneId) {
-    return this._fetch(`/zones/${zoneId}/dns_records`);
+  async listDnsRecords(zoneId, name = "") {
+    let path = `/zones/${zoneId}/dns_records`;
+    if (name) path += `?name=${name}`;
+    return this._fetch(path);
   }
 
   async createDnsRecord(zoneId, type, name, content, proxied, ttl = 1) {
@@ -1311,8 +1313,30 @@ export default {
       }
 
       case '/api/pages/addDomain': {
-        const { projectName, domainName } = body;
+        const { projectName, domainName, zoneName } = body;
         const res = await client.addPagesDomain(accountId, sanitizeWorkerName(projectName), domainName);
+
+        // Auto-create CNAME record so the domain doesn't get stuck in 'pending'
+        if (zoneName) {
+          try {
+            const zones = await client.listZones(zoneName);
+            const zone = zones.result && zones.result.find(z => z.name === zoneName);
+            if (zone) {
+              const cnameContent = `${sanitizeWorkerName(projectName)}.pages.dev`;
+              // Fetch existing records to avoid conflicts
+              const records = await client.listDnsRecords(zone.id, domainName);
+              if (records.success && records.result) {
+                for (const record of records.result) {
+                  await client.deleteDnsRecord(zone.id, record.id);
+                }
+              }
+              await client.createDnsRecord(zone.id, 'CNAME', domainName, cnameContent, true);
+            }
+          } catch (e) {
+            console.error("Auto DNS creation failed:", e);
+          }
+        }
+
         return new Response(JSON.stringify({ success: true, result: res.result || res }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
@@ -4690,7 +4714,7 @@ function renderHTML() {
             let prefix = document.getElementById('pagesSubdomainPrefix').value.trim();
 
             // Remove trailing dots from prefix if user entered any
-            prefix = prefix.replace(/\\.+$/, '');
+            prefix = prefix.replace(/\.+$/, '');
 
             if (!domain) {
                 document.getElementById('pagesResultingDomain').value = '';
@@ -4726,7 +4750,8 @@ function renderHTML() {
                         apiKey: acc.apiKey,
                         accountId: acc.accountId,
                         projectName: currentActivePagesProject,
-                        domainName: customDomain
+                        domainName: customDomain,
+                        zoneName: document.getElementById('pagesDomainSelect').value
                     })
                 });
                 const data = await res.json();
