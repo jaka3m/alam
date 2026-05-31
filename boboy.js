@@ -15,7 +15,7 @@ function getScriptConfig(env, request) {
   }
 
   return {
-    ROOT_DOMAIN: "gvpn1.web.id",
+    ROOT_DOMAIN: "", // No static fallback
     SERVICE_NAME: serviceName,
     PAGES_HOSTNAME: `${serviceName}.pages.dev`,
     API_KEY: "cfk_b0f12HztamSG1BYI4sYIoO2kTMGuBX4nS7iKgwjaba572ba",
@@ -1009,6 +1009,14 @@ export default {
       const url = new URL(request.url);
       url.pathname = url.pathname.replace(/\/+/g, '/'); // Normalize slashes
 
+      // Fallback ROOT_DOMAIN calculation if empty and not explicitly requested
+      if (!config.ROOT_DOMAIN) {
+          const hostParts = url.hostname.split('.');
+          if (hostParts.length > 2 && !url.hostname.endsWith('.pages.dev')) {
+              config.ROOT_DOMAIN = hostParts.slice(-2).join('.');
+          }
+      }
+
       // API for wildcard management
             // API for zones management
       if (url.pathname === '/api/v1/zones') {
@@ -1181,12 +1189,12 @@ export default {
   }
   console.log(`No WebSocket match for path: ${url.pathname}`);
 }
-      const rootDomain = config.ROOT_DOMAIN;
       const serviceName = config.SERVICE_NAME;
       const type = url.searchParams.get('type') || atob('bWl4');
       const tls = url.searchParams.get('tls') !== 'false';
       const wildcard = url.searchParams.get('wildcard') === 'true';
       const bug = url.searchParams.get('bug');
+      const rootDomain = url.searchParams.get('rootDomain') || config.ROOT_DOMAIN || url.hostname.replace(/^[^.]+\./, '');
       const bugs = wildcard ? (bug || rootDomain) : (bug || `${serviceName}.${rootDomain}`);
       const geo81 = wildcard ? `${bug || rootDomain}.${serviceName}.${rootDomain}` : `${serviceName}.${rootDomain}`;
       const country = url.searchParams.get('country');
@@ -3452,12 +3460,14 @@ async function handleSubRequest(hostnem, env) {
                             throw new Error(\`Harap isi \${field === 'bug' ? 'Bug' : 'Jumlah Config'}\`);
                         }
                     }
+                    const rootDomainElement = document.getElementById('rootDomain');
                     const params = new URLSearchParams({
                         type: elements.configType.value,
                         bug: elements.bug.value.trim(),
                         tls: elements.tls.value,
                         wildcard: elements.wildcard.value,
                         limit: elements.limit.value,
+                        ...(rootDomainElement && { rootDomain: rootDomainElement.value }),
                         ...(elements.country.value !== 'all' && { country: elements.country.value })
                     });
                     const generatedLink = \`/vpn/\${elements.app.value}?\${params.toString()}\`;
@@ -3508,8 +3518,25 @@ async function handleSubRequest(hostnem, env) {
 async function handleWebRequest(request, env, config) {
     const cfApi = new CloudflareApi(config);
     const dynamicDomains = await cfApi.getDomainList();
-    const suffixWithService = `.${config.SERVICE_NAME}.${config.ROOT_DOMAIN}`;
-    const suffixRootOnly = `.${config.ROOT_DOMAIN}`;
+    // Fetch zones to dynamically determine domains and wildcards
+    const headers = { "X-Auth-Email": config.API_EMAIL, "X-Auth-Key": config.API_KEY, "Content-Type": "application/json" };
+    let rootDomains = [];
+    try {
+      const res = await fetch("https://api.cloudflare.com/client/v4/zones?per_page=50", { headers });
+      const data = await res.json();
+      if (data.success) {
+        rootDomains = data.result.map(z => z.name);
+      }
+    } catch (e) {
+      console.error("Error fetching zones in handleWebRequest", e);
+    }
+
+    // We get query param if user specifically selected one
+    const url = new URL(request.url);
+    const requestedRootDomain = url.searchParams.get('rootDomain') || (rootDomains.length > 0 ? rootDomains[0] : config.ROOT_DOMAIN);
+
+    const suffixWithService = `.${config.SERVICE_NAME}.${requestedRootDomain}`;
+    const suffixRootOnly = `.${requestedRootDomain}`;
     const dynamicWildcards = dynamicDomains.map(d => {
         const hostname = d.name;
         if (hostname.endsWith(suffixWithService)) {
@@ -4648,7 +4675,10 @@ select:focus {
     ${SIDEBAR_COMPONENT}
     <div class="quantum-container">
     <div class="mt-10"></div>
-                <div class="wildcard-dropdown"> 
+                <div class="wildcard-dropdown">
+                    <select id="rootDomain" name="rootDomain" onchange="onRootDomainChange(event)" style="width: 90px; height: 45px;">
+                        ${rootDomains.map(w => `<option value="${w}" ${requestedRootDomain === w ? 'selected' : ''}>${w}</option>`).join('')}
+                    </select>
                     <select id="wildcard" name="wildcard" onchange="onWildcardChange(event)" style="width: 90px; height: 45px;">
                         <option value="" ${!selectedWildcard ? 'selected' : ''}>No Wildcard</option>
                         ${allWildcards.map(w => `<option value="${w}" ${selectedWildcard === w ? 'selected' : ''}>${w}</option>`).join('')}
@@ -4850,6 +4880,9 @@ const updateURL = (params) => {
 function goToHomePage(hostName) {
     const homeURL = 'https://' + hostName + '/web';
     window.location.href = homeURL;
+}
+function onRootDomainChange(event) {
+    updateURL([{ key: 'rootDomain', value: event.target.value }]);
 }
 function onWildcardChange(event) {
     updateURL([{ key: 'wildcard', value: event.target.value }]);
