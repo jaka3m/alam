@@ -2072,9 +2072,14 @@ function renderHTML() {
             <div class="p-6 space-y-4">
                 <div>
                     <label class="text-[10px] font-black text-slate-500 uppercase">Select Registered Domain</label>
-                    <select id="pagesDomainSelect" onchange="updatePagesResultingDomain()" class="w-full mt-1 bg-[#0d1117] border border-slate-700 rounded-xl px-4 py-2 text-sm text-white outline-none focus:border-blue-500">
-                        <option value="">Loading domains...</option>
-                    </select>
+                    <div class="flex gap-2 mt-1">
+                        <select id="pagesDomainSelect" onchange="updatePagesResultingDomain()" class="flex-1 bg-[#0d1117] border border-slate-700 rounded-xl px-4 py-2 text-sm text-white outline-none focus:border-blue-500">
+                            <option value="">Loading domains...</option>
+                        </select>
+                        <button onclick="loadPagesRegisteredDomains()" class="bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-xl text-white transition-all" title="Refresh Domains">
+                            <i class="fa-solid fa-sync text-xs"></i>
+                        </button>
+                    </div>
                 </div>
                 <div>
                     <label class="text-[10px] font-black text-slate-500 uppercase">Subdomain Prefix (Optional)</label>
@@ -4479,20 +4484,12 @@ function renderHTML() {
             }
         }
 
-        async function showPagesCustomDomainModal() {
-            if (!currentActivePagesProject) return alert("Select a project first!");
+        async function loadPagesRegisteredDomains() {
             const idx = document.getElementById('pagesAccountSelect').value;
-            if (idx === "") return alert("Select an account first!");
-
+            if (idx === "") return;
             const acc = accounts[idx];
             const select = document.getElementById('pagesDomainSelect');
             select.innerHTML = '<option value="">Loading domains...</option>';
-            document.getElementById('pagesSubdomainPrefix').value = '';
-            document.getElementById('pagesResultingDomain').value = '';
-
-            document.getElementById('pagesCustomDomainModal').classList.remove('hidden');
-
-            loadPagesLinkedDomains();
 
             try {
                 const res = await fetch(API_BASE_URL + '/api/listZones', {
@@ -4512,6 +4509,20 @@ function renderHTML() {
                 select.innerHTML = '<option value="">Error loading domains</option>';
                 console.error("Error loading domains:", e);
             }
+        }
+
+        async function showPagesCustomDomainModal() {
+            if (!currentActivePagesProject) return alert("Select a project first!");
+            const idx = document.getElementById('pagesAccountSelect').value;
+            if (idx === "") return alert("Select an account first!");
+
+            document.getElementById('pagesSubdomainPrefix').value = '';
+            document.getElementById('pagesResultingDomain').value = '';
+
+            document.getElementById('pagesCustomDomainModal').classList.remove('hidden');
+
+            loadPagesLinkedDomains();
+            loadPagesRegisteredDomains();
         }
 
         function hidePagesCustomDomainModal() {

@@ -25,3 +25,9 @@ Cloudflare collects anonymous telemetry about your usage of Wrangler. Learn more
 ⎔ Local server updated and ready
 [wrangler:info] GET / 200 OK (81ms)
 [wrangler:info] POST /api/proxyFetch 200 OK (589ms)
+⎔ Reloading local server...
+⎔ Local server updated and ready
+⎔ Reloading local server...
+⎔ Local server updated and ready
+[wrangler:info] GET / 200 OK (83ms)
+[wrangler:info] POST /api/proxyFetch 200 OK (1090ms)
