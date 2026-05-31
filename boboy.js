@@ -5420,16 +5420,37 @@ async function sha256(blob) {
   `;
 }
 
+async function handleRequest(request, env) {
+  const url = new URL(request.url);
+
+  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/raw/')) {
+    return handleApiRequest(request, env);
+  }
+
+  if (env && env.ASSETS) {
+    try {
+      const assetResponse = await env.ASSETS.fetch(request);
+      if (assetResponse.status !== 404) {
+        return assetResponse;
+      }
+    } catch (e) {
+      // Ignored
+    }
+  }
+
+  return new Response(renderHTML(), {
+    headers: {
+      "Content-Type": "text/html;charset=UTF-8"
+    },
+  });
+}
+
+export async function onRequest(context) {
+  return handleRequest(context.request, context.env);
+}
+
 export default {
   async fetch(request, env, ctx) {
-    const url = new URL(request.url);
-    if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/raw/')) {
-      return handleApiRequest(request, env);
-    }
-    return new Response(renderHTML(), {
-      headers: {
-        "Content-Type": "text/html;charset=UTF-8"
-      },
-    });
+    return handleRequest(request, env);
   }
 };
