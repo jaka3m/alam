@@ -1,11 +1,42 @@
 import { connect } from "cloudflare:sockets";
 
 let cachedAccountId = null;
-let cachedZoneId = null;
+let cachedZoneId = {};
+let cachedZonesList = null;
 
 const proxyListURL = 'https://r2.jamu.workers.dev/raw/proxyList.txt';
 
-function getScriptConfig(env, request) {
+async function getCloudflareZones(config) {
+  if (cachedZonesList) return cachedZonesList;
+
+  const headers = {
+    "X-Auth-Email": config.API_EMAIL,
+    "X-Auth-Key": config.API_KEY,
+    "Content-Type": "application/json",
+  };
+
+  try {
+    const res = await fetch(`https://api.cloudflare.com/client/v4/zones?status=active`, { headers });
+    const data = await res.json();
+    if (data.success) {
+      cachedZonesList = data.result.map(z => ({ id: z.id, name: z.name }));
+
+      // Auto-populate the zone ID cache for all fetched domains
+      for (const zone of data.result) {
+        cachedZoneId[zone.name] = zone.id;
+        if (!cachedAccountId && zone.account && zone.account.id) {
+          cachedAccountId = zone.account.id;
+        }
+      }
+      return cachedZonesList;
+    }
+  } catch (e) {
+    console.error("Error fetching Cloudflare Zones:", e);
+  }
+  return [];
+}
+
+async function getScriptConfig(env, request) {
   const url = new URL(request.url);
   const hostname = url.hostname;
 
@@ -14,18 +45,33 @@ function getScriptConfig(env, request) {
     serviceName = hostname.split(".").slice(-3)[0];
   }
 
+  const tempConfig = {
+    API_KEY: "cfk_b0f12HztamSG1BYI4sYIoO2kTMGuBX4nS7iKgwjaba572ba",
+    API_EMAIL: "basogsang@gmail.com"
+  };
+
+  const zones = await getCloudflareZones(tempConfig) || [];
+  let rootDomain = url.searchParams.get('rootDomain');
+
+  if (!rootDomain && zones.length > 0) {
+    rootDomain = zones[0].name;
+  } else if (!rootDomain) {
+    rootDomain = "gvpn1.web.id"; // Provide a fallback if API fails
+  }
+
   return {
-    ROOT_DOMAIN: "gvpn1.web.id",
+    ROOT_DOMAIN: rootDomain,
     SERVICE_NAME: serviceName,
     PAGES_HOSTNAME: `${serviceName}.pages.dev`,
-    API_KEY: "cfk_b0f12HztamSG1BYI4sYIoO2kTMGuBX4nS7iKgwjaba572ba",
-    API_EMAIL: "basogsang@gmail.com",
+    API_KEY: tempConfig.API_KEY,
+    API_EMAIL: tempConfig.API_EMAIL,
     OWNER_PASSWORD: "7",
+    ZONES: zones,
   };
 }
 
 async function ensureCfConfig(config) {
-  if (cachedAccountId && cachedZoneId) return;
+  if (cachedAccountId && cachedZoneId[config.ROOT_DOMAIN]) return;
 
   const headers = {
     "X-Auth-Email": config.API_EMAIL,
@@ -34,7 +80,7 @@ async function ensureCfConfig(config) {
   };
 
   // Try to get Zone ID and Account ID from ROOT_DOMAIN
-  if (!cachedZoneId || !cachedAccountId) {
+  if (!cachedZoneId[config.ROOT_DOMAIN] || !cachedAccountId) {
     try {
       // First try exact match
       let res = await fetch(`https://api.cloudflare.com/client/v4/zones?name=${config.ROOT_DOMAIN}`, { headers });
@@ -42,7 +88,7 @@ async function ensureCfConfig(config) {
 
       if (!data.success || data.result.length === 0) {
         // Try to find zone by climbing up domain parts (e.g. if ROOT_DOMAIN is sub.example.com)
-        const parts = config.ROOT_DOMAIN.split('.');
+        const parts = config.ROOT_DOMAIN ? config.ROOT_DOMAIN.split('.') : [];
         if (parts.length > 2) {
             const rootName = parts.slice(-2).join('.');
             res = await fetch(`https://api.cloudflare.com/client/v4/zones?name=${rootName}`, { headers });
@@ -51,9 +97,9 @@ async function ensureCfConfig(config) {
       }
 
       if (data.success && data.result.length > 0) {
-        cachedZoneId = data.result[0].id;
+        cachedZoneId[config.ROOT_DOMAIN] = data.result[0].id;
         cachedAccountId = data.result[0].account.id;
-        console.log(`Config Found - Zone: ${cachedZoneId}, Account: ${cachedAccountId}`);
+        console.log(`Config Found - Zone: ${cachedZoneId[config.ROOT_DOMAIN]}, Account: ${cachedAccountId}`);
       }
     } catch (e) {
       console.error("Error fetching Zone/Account ID:", e);
@@ -235,7 +281,7 @@ class CloudflareApi {
     console.log(`createDnsRecord: ${name} -> ${content}`);
     try {
       await ensureCfConfig(this.config);
-      if (!cachedZoneId) {
+      if (!cachedZoneId[this.config.ROOT_DOMAIN]) {
         console.error("No cachedZoneId for DNS record creation");
         return null;
       }
@@ -243,8 +289,8 @@ class CloudflareApi {
       const existingId = await this.getDnsRecordId(name);
       console.log(`Existing record ID for ${name}: ${existingId}`);
       const url = existingId
-        ? `https://api.cloudflare.com/client/v4/zones/${cachedZoneId}/dns_records/${existingId}`
-        : `https://api.cloudflare.com/client/v4/zones/${cachedZoneId}/dns_records`;
+        ? `https://api.cloudflare.com/client/v4/zones/${cachedZoneId[this.config.ROOT_DOMAIN]}/dns_records/${existingId}`
+        : `https://api.cloudflare.com/client/v4/zones/${cachedZoneId[this.config.ROOT_DOMAIN]}/dns_records`;
 
       const res = await fetch(url, {
         method: existingId ? "PUT" : "POST",
@@ -267,8 +313,8 @@ class CloudflareApi {
   async getDnsRecordId(name) {
     try {
       await ensureCfConfig(this.config);
-      if (!cachedZoneId) return null;
-      const url = `https://api.cloudflare.com/client/v4/zones/${cachedZoneId}/dns_records?name=${name}`;
+      if (!cachedZoneId[this.config.ROOT_DOMAIN]) return null;
+      const url = `https://api.cloudflare.com/client/v4/zones/${cachedZoneId[this.config.ROOT_DOMAIN]}/dns_records?name=${name}`;
       const res = await fetch(url, { headers: this.headers });
       const data = await res.json();
       if (data.success && data.result.length > 0) {
@@ -283,8 +329,8 @@ class CloudflareApi {
   async deleteDnsRecord(recordId) {
     try {
       await ensureCfConfig(this.config);
-      if (!cachedZoneId) return 500;
-      const url = `https://api.cloudflare.com/client/v4/zones/${cachedZoneId}/dns_records/${recordId}`;
+      if (!cachedZoneId[this.config.ROOT_DOMAIN]) return 500;
+      const url = `https://api.cloudflare.com/client/v4/zones/${cachedZoneId[this.config.ROOT_DOMAIN]}/dns_records/${recordId}`;
       const res = await fetch(url, {
         method: "DELETE",
         headers: this.headers,
@@ -438,6 +484,17 @@ const SIDEBAR_COMPONENT = `
                     localStorage.setItem('theme', 'dark');
                 }
             }
+        document.addEventListener('DOMContentLoaded', () => {
+            const rootDomain = new URLSearchParams(window.location.search).get('rootDomain');
+            if (rootDomain) {
+                document.querySelectorAll('a.menu-item').forEach(el => {
+                    const href = el.getAttribute('href');
+                    if (href && (href === '/web' || href === '/vpn')) {
+                        el.setAttribute('href', href + '?rootDomain=' + encodeURIComponent(rootDomain));
+                    }
+                });
+            }
+        });
         </script>
         <button
             @click="sidebarOpen = true"
@@ -730,7 +787,9 @@ const SIDEBAR_COMPONENT = `
             if (btn) btn.disabled = true;
 
             try {
-                const response = await fetch('/api/v1/domains');
+                const rootDomain = new URLSearchParams(window.location.search).get('rootDomain') || '';
+                const url = '/api/v1/domains' + (rootDomain ? '?rootDomain=' + encodeURIComponent(rootDomain) : '');
+                const response = await fetch(url);
                 if (response.ok) {
                     domains = await response.json();
                     domainPage = 1;
@@ -860,7 +919,9 @@ const SIDEBAR_COMPONENT = `
             }
             setLoadingState(true);
             try {
-                const response = await fetch('/api/v1/domains', {
+                const rootDomain = new URLSearchParams(window.location.search).get('rootDomain') || '';
+                const url = '/api/v1/domains' + (rootDomain ? '?rootDomain=' + encodeURIComponent(rootDomain) : '');
+                const response = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ domain }),
@@ -914,7 +975,9 @@ const SIDEBAR_COMPONENT = `
 
             setLoadingState(true);
             try {
-                const response = await fetch('/api/v1/domains', {
+                const rootDomain = new URLSearchParams(window.location.search).get('rootDomain') || '';
+                const url = '/api/v1/domains' + (rootDomain ? '?rootDomain=' + encodeURIComponent(rootDomain) : '');
+                const response = await fetch(url, {
                     method: 'DELETE',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ domain: domainName, password: password }),
@@ -980,7 +1043,7 @@ async function reverseProxy(request, target) {
 export default {
   async fetch(request, env, ctx) {
     try {
-      const config = getScriptConfig(env, request);
+      const config = await getScriptConfig(env, request);
       const url = new URL(request.url);
       url.pathname = url.pathname.replace(/\/+/g, '/'); // Normalize slashes
 
@@ -1160,7 +1223,7 @@ export default {
           return await handleWebRequest(request, env, config);
           break;
         case atob('L3Zwbg=='):
-          return new Response(await handleSubRequest(url.hostname, env), { headers: { 'Content-Type': 'text/html' } });
+          return new Response(await handleSubRequest(url.hostname, env, config), { headers: { 'Content-Type': 'text/html' } });
 
           break;
 case "/checker":
@@ -1825,7 +1888,7 @@ function mamangenerateHTML() {
 }
 async function handleStatsRequest(config) {
   await ensureCfConfig(config);
-  if (!cachedZoneId) {
+  if (!cachedZoneId[config.ROOT_DOMAIN]) {
     return new Response("ZONE_ID could not be determined.", { status: 500, headers: { "Content-Type": "text/html" } });
   }
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -1840,7 +1903,7 @@ async function handleStatsRequest(config) {
       body: JSON.stringify({
         query: `query {
           viewer {
-            zones(filter: { zoneTag: "${cachedZoneId}" }) {
+            zones(filter: { zoneTag: "${cachedZoneId[config.ROOT_DOMAIN]}" }) {
               httpRequests1hGroups(
                 limit: 24,
                 orderBy: [datetime_DESC],
@@ -2904,7 +2967,7 @@ function groupBy(array, key) {
     return result;
   }, {});
 }
-async function handleSubRequest(hostnem, env) {
+async function handleSubRequest(hostnem, env, config) {
   const proxyListURL = 'https://r2.jamu.workers.dev/raw/proxyList.txt';
   async function getCountryList() {
     try {
@@ -3295,6 +3358,15 @@ async function handleSubRequest(hostnem, env) {
                     </select>
                 </div>
                 <div class="form-group">
+                    <label for="rootDomain">
+                        <i class="fas fa-globe"></i>
+                        Root Domain
+                    </label>
+                    <select id="rootDomain" class="form-control">
+                        ${(config.ZONES || []).map(z => `<option value="${z.name}" ${config.ROOT_DOMAIN === z.name ? 'selected' : ''}>${z.name}</option>`).join('\n                        ')}
+                    </select>
+                </div>
+                <div class="form-group">
                     <label for="wildcard">
                         <i class="fas fa-asterisk"></i>
                         Wildcard
@@ -3366,7 +3438,8 @@ async function handleSubRequest(hostnem, env) {
                 tls: document.getElementById('tls'),
                 wildcard: document.getElementById('wildcard'),
                 country: document.getElementById('country'),
-                limit: document.getElementById('limit')
+                limit: document.getElementById('limit'),
+                rootDomain: document.getElementById('rootDomain')
             };
             appSelect.addEventListener('change', () => {
                 const selectedApp = appSelect.value;
@@ -3397,6 +3470,7 @@ async function handleSubRequest(hostnem, env) {
                         tls: elements.tls.value,
                         wildcard: elements.wildcard.value,
                         limit: elements.limit.value,
+                        rootDomain: elements.rootDomain.value,
                         ...(elements.country.value !== 'all' && { country: elements.country.value })
                     });
                     const generatedLink = \`/vpn/\${elements.app.value}?\${params.toString()}\`;
@@ -3446,11 +3520,16 @@ async function handleSubRequest(hostnem, env) {
 }
 async function handleWebRequest(request, env, config) {
     const cfApi = new CloudflareApi(config);
-    const dynamicDomains = await cfApi.getDomainList();
+    let dynamicDomains = [];
+    try {
+        dynamicDomains = await cfApi.getDomainList() || [];
+    } catch (e) {
+        console.error("Error fetching domains in handleWebRequest:", e);
+    }
     const suffixWithService = `.${config.SERVICE_NAME}.${config.ROOT_DOMAIN}`;
     const suffixRootOnly = `.${config.ROOT_DOMAIN}`;
     const dynamicWildcards = dynamicDomains.map(d => {
-        const hostname = d.name;
+        const hostname = d.name || "";
         if (hostname.endsWith(suffixWithService)) {
             return hostname.slice(0, -suffixWithService.length);
         }
@@ -3487,7 +3566,7 @@ async function handleWebRequest(request, env, config) {
         return [];
       }
     };
-function buildCountryFlag() {
+function buildCountryFlag(page) {
   const flagList = cachedProxyList.map((proxy) => proxy.country);
   const uniqueFlags = new Set(flagList);
   let flagElement = "";
@@ -4588,6 +4667,9 @@ select:focus {
     <div class="quantum-container">
     <div class="mt-10"></div>
                 <div class="wildcard-dropdown"> 
+                    <select id="rootDomain" name="rootDomain" onchange="onRootDomainChange(event)" style="width: 100px; height: 45px;">
+                        ${(config.ZONES || []).map(z => `<option value="${z.name}" ${config.ROOT_DOMAIN === z.name ? 'selected' : ''}>${z.name}</option>`).join('')}
+                    </select>
                     <select id="wildcard" name="wildcard" onchange="onWildcardChange(event)" style="width: 90px; height: 45px;">
                         <option value="" ${!selectedWildcard ? 'selected' : ''}>No Wildcard</option>
                         ${allWildcards.map(w => `<option value="${w}" ${selectedWildcard === w ? 'selected' : ''}>${w}</option>`).join('')}
@@ -4610,7 +4692,7 @@ select:focus {
                 
             <div class="w-full h-12 px-2 py-1 flex items-center space-x-2 shadow-lg border"
     style="border-width: 1px; border-style: solid; border-color: #28a745; height: 55px; border-radius: 10px; background-image: url('https://www.transparenttextures.com/patterns/cubes.png'); overflow-x: auto; overflow-y: hidden;">
-    ${buildCountryFlag()}
+    ${buildCountryFlag(page)}
 </div>
                 ${cardsHTML}
                 ${showOptionsScript}
@@ -4789,6 +4871,9 @@ const updateURL = (params) => {
 function goToHomePage(hostName) {
     const homeURL = 'https://' + hostName + '/web';
     window.location.href = homeURL;
+}
+function onRootDomainChange(event) {
+    updateURL([{ key: 'rootDomain', value: event.target.value }]);
 }
 function onWildcardChange(event) {
     updateURL([{ key: 'wildcard', value: event.target.value }]);
