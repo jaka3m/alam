@@ -1,42 +1,9 @@
 
  ⛅️ wrangler 4.95.0
 ───────────────────
-
-Cloudflare collects anonymous telemetry about your usage of Wrangler. Learn more at https://github.com/cloudflare/workers-sdk/tree/main/packages/wrangler/telemetry.md
 ⎔ Starting local server...
 [wrangler:info] Ready on http://localhost:8787
-[wrangler:info] GET / 200 OK (19ms)
-[wrangler:info] POST /api/proxyFetch 200 OK (686ms)
-[wrangler:info] GET / 200 OK (9ms)
-[wrangler:info] POST /api/proxyFetch 200 OK (341ms)
-⎔ Reloading local server...
-⎔ Local server updated and ready
 [wrangler:info] GET / 200 OK (17ms)
-[wrangler:info] POST /api/proxyFetch 200 OK (292ms)
-⎔ Reloading local server...
-⎔ Local server updated and ready
-⎔ Reloading local server...
-⎔ Local server updated and ready
-⎔ Reloading local server...
-⎔ Local server updated and ready
-⎔ Reloading local server...
-⎔ Local server updated and ready
-⎔ Reloading local server...
-⎔ Local server updated and ready
-[wrangler:info] GET / 200 OK (81ms)
-[wrangler:info] POST /api/proxyFetch 200 OK (589ms)
-⎔ Reloading local server...
-⎔ Local server updated and ready
-⎔ Reloading local server...
-⎔ Local server updated and ready
-[wrangler:info] GET / 200 OK (83ms)
-[wrangler:info] POST /api/proxyFetch 200 OK (1090ms)
-⎔ Reloading local server...
-⎔ Local server updated and ready
-⎔ Reloading local server...
-⎔ Local server updated and ready
-⎔ Reloading local server...
-⎔ Local server updated and ready
-[31m✘ [41;31m[[41;97mERROR[41;31m][0m [1mBuild failed with 1 error:[0m
-
-  [31m✘ [41;31m[[41;97mERROR[41;31m][0m [1mCould not resolve "/app/.wrangler/tmp/bundle-2EWZwy/middleware-loader.entry.ts"[0m
+[wrangler:info] POST /api/proxyFetch 200 OK (425ms)
+[wrangler:info] GET / 200 OK (8ms)
+[wrangler:info] POST /api/proxyFetch 200 OK (314ms)
