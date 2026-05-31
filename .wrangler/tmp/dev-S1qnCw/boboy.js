@@ -444,6 +444,15 @@ var CfClient = class {
       body: JSON.stringify({ name: domainName })
     });
   }
+  async listPagesDomains(accountId, projectName) {
+    return this._fetch(`/accounts/${accountId}/pages/projects/${projectName}/domains`);
+  }
+  async deletePagesDomain(accountId, projectName, domainName) {
+    return this._fetch(`/accounts/${accountId}/pages/projects/${projectName}/domains/${domainName}`, {
+      method: "DELETE",
+      contentType: null
+    });
+  }
 };
 var corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1151,6 +1160,20 @@ export default {
       case "/api/pages/addDomain": {
         const { projectName, domainName } = body;
         const res = await client.addPagesDomain(accountId, sanitizeWorkerName(projectName), domainName);
+        return new Response(JSON.stringify({ success: true, result: res.result || res }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+      case "/api/pages/listDomains": {
+        const { projectName } = body;
+        const res = await client.listPagesDomains(accountId, sanitizeWorkerName(projectName));
+        return new Response(JSON.stringify({ success: true, result: res.result || res }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+      case "/api/pages/deleteDomain": {
+        const { projectName, domainName } = body;
+        const res = await client.deletePagesDomain(accountId, sanitizeWorkerName(projectName), domainName);
         return new Response(JSON.stringify({ success: true, result: res.result || res }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
@@ -2061,6 +2084,13 @@ function renderHTML() {
                 <div>
                     <label class="text-[10px] font-black text-slate-500 uppercase">Resulting Custom Domain</label>
                     <input id="pagesResultingDomain" type="text" readonly class="w-full mt-1 bg-black/20 border border-slate-800 rounded-xl px-4 py-2 text-sm text-orange-400 font-mono outline-none">
+                </div>
+
+                <div class="border-t border-slate-800 pt-4 mt-4">
+                    <label class="text-[10px] font-black text-slate-500 uppercase block mb-2">Linked Domains</label>
+                    <div id="pagesLinkedDomainsList" class="space-y-2 max-h-[150px] overflow-y-auto">
+                        <div class="text-center py-4 text-slate-600 text-xs italic">Loading...</div>
+                    </div>
                 </div>
             </div>
             <div class="p-6 border-t border-slate-800 bg-[#0d1117] flex justify-end gap-3">
@@ -4382,6 +4412,73 @@ function renderHTML() {
         let currentPagesProjectDeployments = [];
         let currentActivePagesProject = "";
 
+        async function loadPagesLinkedDomains() {
+            if (!currentActivePagesProject) return;
+            const idx = document.getElementById('pagesAccountSelect').value;
+            const acc = accounts[idx];
+            const list = document.getElementById('pagesLinkedDomainsList');
+            list.innerHTML = '<div class="text-center py-4 text-slate-600 text-xs italic"><i class="fa-solid fa-circle-notch fa-spin"></i> Loading...</div>';
+
+            try {
+                const res = await fetch(API_BASE_URL + '/api/pages/listDomains', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: acc.email, apiKey: acc.apiKey, accountId: acc.accountId, projectName: currentActivePagesProject })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    renderPagesLinkedDomains(data.result);
+                } else {
+                    list.innerHTML = '<div class="text-center py-4 text-red-500 text-xs">' + data.message + '</div>';
+                }
+            } catch (e) {
+                list.innerHTML = '<div class="text-center py-4 text-red-500 text-xs">' + e.message + '</div>';
+            }
+        }
+
+        function renderPagesLinkedDomains(domains) {
+            const list = document.getElementById('pagesLinkedDomainsList');
+            if (!domains || domains.length === 0) {
+                list.innerHTML = '<div class="text-center py-4 text-slate-600 text-xs italic">No domains linked to this project.</div>';
+                return;
+            }
+
+            list.innerHTML = domains.map(function(d) {
+                const statusColor = d.status === 'active' ? 'text-green-500' : 'text-orange-500';
+                return '<div class="flex justify-between items-center bg-black/40 p-2 rounded-lg border border-slate-700/50">' +
+                    '<div class="flex flex-col">' +
+                        '<a href="https://' + d.name + '" target="_blank" class="text-xs text-blue-400 hover:underline">' + d.name + '</a>' +
+                        '<span class="text-[9px] uppercase font-bold ' + statusColor + '">' + d.status + '</span>' +
+                    '</div>' +
+                    '<button onclick="deletePagesDomain(\\'' + d.name + '\\')" class="text-slate-500 hover:text-red-500 transition-all p-1" title="Delete Domain">' +
+                        '<i class="fa-solid fa-trash-can"></i>' +
+                    '</button>' +
+                '</div>';
+            }).join('');
+        }
+
+        async function deletePagesDomain(domainName) {
+            if (!confirm("Are you sure you want to remove " + domainName + " from this project?")) return;
+            const idx = document.getElementById('pagesAccountSelect').value;
+            const acc = accounts[idx];
+
+            try {
+                const res = await fetch(API_BASE_URL + '/api/pages/deleteDomain', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: acc.email, apiKey: acc.apiKey, accountId: acc.accountId, projectName: currentActivePagesProject, domainName: domainName })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    loadPagesLinkedDomains();
+                } else {
+                    alert("Failed to delete domain: " + data.message);
+                }
+            } catch (e) {
+                alert("Error: " + e.message);
+            }
+        }
+
         async function showPagesCustomDomainModal() {
             if (!currentActivePagesProject) return alert("Select a project first!");
             const idx = document.getElementById('pagesAccountSelect').value;
@@ -4394,6 +4491,8 @@ function renderHTML() {
             document.getElementById('pagesResultingDomain').value = '';
 
             document.getElementById('pagesCustomDomainModal').classList.remove('hidden');
+
+            loadPagesLinkedDomains();
 
             try {
                 const res = await fetch(API_BASE_URL + '/api/listZones', {
@@ -4466,7 +4565,9 @@ function renderHTML() {
                 const data = await res.json();
                 if (data.success) {
                     alert("Custom domain added successfully! It may take a few minutes for Cloudflare to verify and issue certificates.", "success");
-                    hidePagesCustomDomainModal();
+                    document.getElementById('pagesSubdomainPrefix').value = '';
+                    updatePagesResultingDomain();
+                    loadPagesLinkedDomains();
                 } else {
                     alert("Failed to add custom domain: " + data.message, "error");
                 }
