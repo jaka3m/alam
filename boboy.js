@@ -2272,7 +2272,12 @@ function renderHTML() {
                 </div>
 
                 <div class="border-t border-slate-800 pt-4 mt-4">
-                    <label class="text-[10px] font-black text-slate-500 uppercase block mb-2">Linked Domains</label>
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="text-[10px] font-black text-slate-500 uppercase">Linked Domains</label>
+                        <button onclick="loadPagesLinkedDomains()" class="text-slate-500 hover:text-white transition-all" title="Refresh Linked Domains">
+                            <i class="fa-solid fa-sync text-xs"></i>
+                        </button>
+                    </div>
                     <div id="pagesLinkedDomainsList" class="space-y-2 max-h-[150px] overflow-y-auto">
                         <div class="text-center py-4 text-slate-600 text-xs italic">Loading...</div>
                     </div>

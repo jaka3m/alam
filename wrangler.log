@@ -7,3 +7,7 @@
 [wrangler:info] POST /api/proxyFetch 200 OK (425ms)
 [wrangler:info] GET / 200 OK (8ms)
 [wrangler:info] POST /api/proxyFetch 200 OK (314ms)
+⎔ Reloading local server...
+⎔ Local server updated and ready
+[wrangler:info] GET / 200 OK (46ms)
+[wrangler:info] POST /api/proxyFetch 200 OK (803ms)
