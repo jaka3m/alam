@@ -1,47 +1,44 @@
-const CF_BASE_URL = "https://api.cloudflare.com/client/v4";
-const DEFAULT_SCRIPT_URL = "https://r2.jamu.workers.dev/raw/r2vpn.js";
-const PROXY_LIST_URL = "https://r2.jamu.workers.dev/raw/proxyList.txt";
+var __defProp = Object.defineProperty;
+var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
 
-// ==================== UTILITY FUNCTIONS ====================
-
+// boboy.js
+var CF_BASE_URL = "https://api.cloudflare.com/client/v4";
+var PROXY_LIST_URL = "https://r2.jamu.workers.dev/raw/proxyList.txt";
 function generateUUID() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
     const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    const v = c === "x" ? r : r & 3 | 8;
     return v.toString(16);
   });
 }
-
+__name(generateUUID, "generateUUID");
 function sanitizeWorkerName(name) {
   if (!name) return `worker-${Date.now().toString(36)}`;
-  return name.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 32);
+  return name.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 32);
 }
-
-// ==================== CLOUDFLARE API CLIENT ====================
-
-class CfClient {
+__name(sanitizeWorkerName, "sanitizeWorkerName");
+var CfClient = class {
+  static {
+    __name(this, "CfClient");
+  }
   constructor(email, apiKey) {
     this.email = email;
     this.apiKey = apiKey;
   }
-
   async _fetch(path, options = {}) {
-    const url = path.startsWith('http') ? path : `${CF_BASE_URL}${path}`;
+    const url = path.startsWith("http") ? path : `${CF_BASE_URL}${path}`;
     const headers = {
       "X-Auth-Email": this.email,
       "X-Auth-Key": this.apiKey,
       "Content-Type": options.contentType || "application/json",
       "User-Agent": "Cloudflare-Worker-Manager/1.0"
     };
-
     if (options.contentType === null) delete headers["Content-Type"];
-
     const response = await fetch(url, {
-      method: options.method || 'GET',
-      headers: headers,
+      method: options.method || "GET",
+      headers,
       body: options.body
     });
-
     const text = await response.text();
     let data = {};
     if (text) {
@@ -51,8 +48,7 @@ class CfClient {
         if (!response.ok) throw new Error(`CF API Error: ${response.status} - Invalid JSON`);
       }
     }
-
-    if (!response.ok || (data && data.success === false)) {
+    if (!response.ok || data && data.success === false) {
       if (data && data.errors && data.errors.length > 0) {
         throw new Error(data.errors[0].message);
       }
@@ -60,21 +56,16 @@ class CfClient {
     }
     return data;
   }
-
   async getUserInfo() {
     return this._fetch("/user");
   }
-
   async getAccounts() {
     return this._fetch("/accounts");
   }
-
   async listWorkers(accountId) {
     return this._fetch(`/accounts/${accountId}/workers/services`);
   }
-
   async getWorkerScript(accountId, workerName) {
-    // Primary: Standard script content endpoint
     const url = `${CF_BASE_URL}/accounts/${accountId}/workers/scripts/${workerName}/content`;
     let response = await fetch(url, {
       headers: {
@@ -82,8 +73,6 @@ class CfClient {
         "X-Auth-Key": this.apiKey
       }
     });
-
-    // Fallback 1: Service production content
     if (!response.ok) {
       const altUrl = `${CF_BASE_URL}/accounts/${accountId}/workers/services/${workerName}/environments/production/content`;
       response = await fetch(altUrl, {
@@ -93,8 +82,6 @@ class CfClient {
         }
       });
     }
-
-    // Fallback 2: General service content
     if (!response.ok) {
       const altUrl2 = `${CF_BASE_URL}/accounts/${accountId}/workers/services/${workerName}/content`;
       response = await fetch(altUrl2, {
@@ -104,42 +91,31 @@ class CfClient {
         }
       });
     }
-
     if (!response.ok) throw new Error(`Failed to fetch script content: ${response.status}`);
-
     const text = await response.text();
-
-    // Safety check: if response is JSON metadata instead of script
     try {
       const json = JSON.parse(text);
-      if (json.success && json.result && !text.includes('Content-Disposition')) {
-        // This is metadata. We might need to dig deeper or it might mean the script is not accessible this way.
+      if (json.success && json.result && !text.includes("Content-Disposition")) {
       }
     } catch (e) {
-      // Not JSON, likely raw script content
     }
-
     return this._cleanScript(text);
   }
-
   _cleanScript(text) {
     if (!text) return "";
-
-    // Safety: if the response is JSON (metadata), pretty print it if it's all we have
-    if (text.trim().startsWith('{')) {
+    if (text.trim().startsWith("{")) {
       try {
         const json = JSON.parse(text);
         if (json.success === true && json.result) {
           return JSON.stringify(json, null, 2);
         }
-      } catch (e) {}
+      } catch (e) {
+      }
     }
-
-    // If it's a multipart response, extract the actual script content
     if (text.includes("Content-Disposition: form-data")) {
       const parts = text.split(/--[a-f0-9-]{10,}/i);
       for (let part of parts) {
-        if (part.includes("Content-Type: application/javascript") || part.includes("filename=\"worker.js\"")) {
+        if (part.includes("Content-Type: application/javascript") || part.includes('filename="worker.js"')) {
           const lines = part.trim().split("\n");
           let scriptStart = -1;
           for (let i = 0; i < lines.length; i++) {
@@ -156,7 +132,6 @@ class CfClient {
     }
     return text.trim();
   }
-
   async updateWorker(accountId, workerName, scriptContent, bindings = []) {
     const boundary = `----WebKitFormBoundary${Date.now().toString(16)}`;
     const metadata = {
@@ -164,42 +139,38 @@ class CfClient {
       compatibility_date: "2024-12-03",
       compatibility_flags: ["nodejs_compat"]
     };
-
     if (bindings && bindings.length > 0) {
       metadata.bindings = bindings;
     }
-
     const body = [
       `--${boundary}`,
       'Content-Disposition: form-data; name="worker.js"; filename="worker.js"',
-      'Content-Type: application/javascript+module',
-      '',
+      "Content-Type: application/javascript+module",
+      "",
       scriptContent,
       `--${boundary}`,
       'Content-Disposition: form-data; name="metadata"',
-      'Content-Type: application/json',
-      '',
+      "Content-Type: application/json",
+      "",
       JSON.stringify(metadata),
       `--${boundary}--`,
-      ''
-    ].join('\r\n');
-
+      ""
+    ].join("\r\n");
     return this._fetch(`/accounts/${accountId}/workers/services/${workerName}/environments/production`, {
-      method: 'PUT',
+      method: "PUT",
       contentType: `multipart/form-data; boundary=${boundary}`,
-      body: body
+      body
     });
   }
-
   async getOrCreateSubdomain(accountId) {
     try {
       const data = await this._fetch(`/accounts/${accountId}/workers/subdomain`);
       return data.result.subdomain;
     } catch (error) {
-      const subdomainName = this.email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+      const subdomainName = this.email.split("@")[0].toLowerCase().replace(/[^a-z0-9]/g, "");
       try {
         const response = await this._fetch(`/accounts/${accountId}/workers/subdomain`, {
-          method: 'PUT',
+          method: "PUT",
           body: JSON.stringify({
             subdomain: subdomainName
           })
@@ -210,12 +181,11 @@ class CfClient {
       }
     }
   }
-
   async createWorker(accountId, workerName, scriptContent, bindings = []) {
     await this.updateWorker(accountId, workerName, scriptContent, bindings);
     try {
       await this._fetch(`/accounts/${accountId}/workers/services/${workerName}/environments/production/subdomain`, {
-        method: 'POST',
+        method: "POST",
         body: JSON.stringify({
           enabled: true
         })
@@ -229,24 +199,21 @@ class CfClient {
       subdomain
     };
   }
-
   async deleteWorker(accountId, workerName) {
     return this._fetch(`/accounts/${accountId}/workers/services/${workerName}`, {
-      method: 'DELETE',
+      method: "DELETE",
       contentType: null
     });
   }
-
   async listZones(name = "", status = "active") {
     let path = `/zones?per_page=50`;
     if (status) path += `&status=${status}`;
     if (name) path += `&name=${name}`;
     return this._fetch(path);
   }
-
   async createZone(accountId, zoneName) {
     return this._fetch("/zones", {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify({
         account: { id: accountId },
         name: zoneName,
@@ -254,72 +221,62 @@ class CfClient {
       })
     });
   }
-
   async deleteZone(zoneId) {
     return this._fetch(`/zones/${zoneId}`, {
-      method: 'DELETE',
+      method: "DELETE",
       contentType: null
     });
   }
-
   // --- DNS RECORDS METHODS ---
-
   async listDnsRecords(zoneId, name = "") {
     let path = `/zones/${zoneId}/dns_records`;
     if (name) path += `?name=${name}`;
     return this._fetch(path);
   }
-
   async createDnsRecord(zoneId, type, name, content, proxied, ttl = 1) {
     const payload = {
-      type: type,
-      name: name,
-      content: content,
-      proxied: proxied,
-      ttl: ttl
+      type,
+      name,
+      content,
+      proxied,
+      ttl
     };
     return this._fetch(`/zones/${zoneId}/dns_records`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify(payload)
     });
   }
-
   async deleteDnsRecord(zoneId, recordId) {
     return this._fetch(`/zones/${zoneId}/dns_records/${recordId}`, {
-      method: 'DELETE',
+      method: "DELETE",
       contentType: null
     });
   }
-
   async registerCustomDomain(accountId, workerName, hostname, zoneId) {
     return this._fetch(`/accounts/${accountId}/workers/domains`, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify({
         environment: "production",
-        hostname: hostname,
+        hostname,
         service: workerName,
         zone_id: zoneId
       })
     });
   }
-
   async listCustomDomains(accountId, serviceName) {
     return this._fetch(`/accounts/${accountId}/workers/domains?service=${serviceName}`);
   }
-
   async getWorkerMetadata(accountId, workerName) {
     return this._fetch(`/accounts/${accountId}/workers/services/${workerName}/environments/production/content`, {
-      method: 'GET'
+      method: "GET"
     });
   }
-
   async deleteCustomDomain(accountId, domainId) {
     return this._fetch(`/accounts/${accountId}/workers/domains/${domainId}`, {
-      method: 'DELETE',
+      method: "DELETE",
       contentType: null
     });
   }
-
   async getWorkerAnalytics(accountId, workerName) {
     const query = `
       query GetWorkerAnalytics($accountId: String!, $workerName: String!) {
@@ -343,9 +300,8 @@ class CfClient {
         }
       }
     `;
-
     const response = await fetch("https://api.cloudflare.com/client/v4/graphql", {
-      method: 'POST',
+      method: "POST",
       headers: {
         "X-Auth-Email": this.email,
         "X-Auth-Key": this.apiKey,
@@ -359,19 +315,16 @@ class CfClient {
         }
       })
     });
-
     const data = await response.json();
     if (!response.ok || data.errors) {
       const msg = data.errors?.[0]?.message || `GraphQL Error: ${response.status}`;
       throw new Error(msg);
     }
-
     if (data.data && data.data.viewer && data.data.viewer.accounts && data.data.viewer.accounts.length > 0) {
       return data.data.viewer.accounts[0].workersInvocationsAdaptive;
     }
     return [];
   }
-
   async getAccountAnalytics(accountId) {
     const query = `
       query GetAccountAnalytics($accountId: String!) {
@@ -394,9 +347,8 @@ class CfClient {
         }
       }
     `;
-
     const response = await fetch("https://api.cloudflare.com/client/v4/graphql", {
-      method: 'POST',
+      method: "POST",
       headers: {
         "X-Auth-Email": this.email,
         "X-Auth-Key": this.apiKey,
@@ -409,188 +361,156 @@ class CfClient {
         }
       })
     });
-
     const data = await response.json();
     if (!response.ok || data.errors) throw new Error(data.errors?.[0]?.message || "GraphQL Error");
-
     if (data.data && data.data.viewer && data.data.viewer.accounts && data.data.viewer.accounts.length > 0) {
       return data.data.viewer.accounts[0].workersInvocationsAdaptive;
     }
     return [];
   }
-
   // --- R2 Methods ---
   async listR2Buckets(accountId) {
     return this._fetch(`/accounts/${accountId}/r2/buckets`);
   }
-
   async createR2Bucket(accountId, bucketName) {
     return this._fetch(`/accounts/${accountId}/r2/buckets`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify({ name: bucketName })
     });
   }
-
   async deleteR2Bucket(accountId, bucketName) {
     const b = encodeURIComponent(bucketName);
     return this._fetch(`/accounts/${accountId}/r2/buckets/${b}`, {
-      method: 'DELETE',
+      method: "DELETE",
       contentType: null
     });
   }
-
   async listR2Objects(accountId, bucketName) {
     const b = encodeURIComponent(bucketName);
     return this._fetch(`/accounts/${accountId}/r2/buckets/${b}/objects`);
   }
-
   async uploadR2Object(accountId, bucketName, key, body, contentType) {
     const b = encodeURIComponent(bucketName);
     const k = encodeURIComponent(key);
     return this._fetch(`/accounts/${accountId}/r2/buckets/${b}/objects/${k}`, {
-      method: 'PUT',
-      contentType: contentType || 'application/octet-stream',
-      body: body
+      method: "PUT",
+      contentType: contentType || "application/octet-stream",
+      body
     });
   }
-
   async deleteR2Object(accountId, bucketName, key) {
     const b = encodeURIComponent(bucketName);
     const k = encodeURIComponent(key);
     return this._fetch(`/accounts/${accountId}/r2/buckets/${b}/objects/${k}`, {
-      method: 'DELETE',
+      method: "DELETE",
       contentType: null
     });
   }
-
   async getWorkerSettings(accountId, workerName) {
     return this._fetch(`/accounts/${accountId}/workers/services/${workerName}/environments/production/settings`);
   }
-
   async updateWorkerSettings(accountId, workerName, settings) {
     return this._fetch(`/accounts/${accountId}/workers/services/${workerName}/environments/production/settings`, {
-      method: 'PATCH',
+      method: "PATCH",
       body: JSON.stringify(settings)
     });
   }
-
   // --- Pages Methods ---
   async listPagesProjects(accountId) {
     return this._fetch(`/accounts/${accountId}/pages/projects`);
   }
-
   async createPagesProject(accountId, projectName, productionBranch = "main") {
     return this._fetch(`/accounts/${accountId}/pages/projects`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify({
         name: projectName,
         production_branch: productionBranch
       })
     });
   }
-
   async deletePagesProject(accountId, projectName) {
     return this._fetch(`/accounts/${accountId}/pages/projects/${projectName}`, {
-      method: 'DELETE',
+      method: "DELETE",
       contentType: null
     });
   }
-
   async listPagesDeployments(accountId, projectName) {
     return this._fetch(`/accounts/${accountId}/pages/projects/${projectName}/deployments`);
   }
-
   async getPagesDeploymentDetails(accountId, projectName, deploymentId) {
     return this._fetch(`/accounts/${accountId}/pages/projects/${projectName}/deployments/${deploymentId}`);
   }
-
   async deletePagesDeployment(accountId, projectName, deploymentId) {
     return this._fetch(`/accounts/${accountId}/pages/projects/${projectName}/deployments/${deploymentId}`, {
-      method: 'DELETE'
+      method: "DELETE"
     });
   }
-
   async addPagesDomain(accountId, projectName, domainName) {
     return this._fetch(`/accounts/${accountId}/pages/projects/${projectName}/domains`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify({ name: domainName })
     });
   }
-
   async listPagesDomains(accountId, projectName) {
     return this._fetch(`/accounts/${accountId}/pages/projects/${projectName}/domains`);
   }
-
   async deletePagesDomain(accountId, projectName, domainName) {
     return this._fetch(`/accounts/${accountId}/pages/projects/${projectName}/domains/${domainName}`, {
-      method: 'DELETE',
+      method: "DELETE",
       contentType: null
     });
   }
-}
-
-// ==================== HANDLERS ====================
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
 };
-
+var corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type"
+};
 function getContentType(filename) {
-  const ext = filename.split('.').pop().toLowerCase();
+  const ext = filename.split(".").pop().toLowerCase();
   const mimes = {
-    'js': 'application/javascript',
-    'css': 'text/css',
-    'html': 'text/html',
-    'txt': 'text/plain',
-    'json': 'application/json',
-    'png': 'image/png',
-    'jpg': 'image/jpeg',
-    'jpeg': 'image/jpeg',
-    'gif': 'image/gif',
-    'svg': 'image/svg+xml',
-    'pdf': 'application/pdf',
-    'zip': 'application/zip'
+    "js": "application/javascript",
+    "css": "text/css",
+    "html": "text/html",
+    "txt": "text/plain",
+    "json": "application/json",
+    "png": "image/png",
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "gif": "image/gif",
+    "svg": "image/svg+xml",
+    "pdf": "application/pdf",
+    "zip": "application/zip"
   };
-  return mimes[ext] || 'application/octet-stream';
+  return mimes[ext] || "application/octet-stream";
 }
-
+__name(getContentType, "getContentType");
 async function handleRawRequest(request, env) {
   const url = new URL(request.url);
-  const key = url.pathname.replace(/^\/raw\//, '');
-
+  const key = url.pathname.replace(/^\/raw\//, "");
   if (!key) return new Response("Object key missing", { status: 400 });
-
-  // Use credentials from env or fallback to provided ones if configured
   const email = env.R2_EMAIL;
   const apiKey = env.R2_API_KEY;
   const accountId = env.R2_ACCOUNT_ID;
   const bucketName = env.R2_BUCKET;
-
   if (!email || !apiKey || !accountId || !bucketName) {
     return new Response("R2 Proxy not configured in Environment Variables (R2_EMAIL, R2_API_KEY, R2_ACCOUNT_ID, R2_BUCKET)", { status: 500 });
   }
-
   const client = new CfClient(email, apiKey);
   const b = encodeURIComponent(bucketName);
   const k = encodeURIComponent(key);
-
   try {
-    // We use the direct R2 API endpoint to fetch the object
     const r2Url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/r2/buckets/${b}/objects/${k}`;
     const response = await fetch(r2Url, {
-      method: 'GET',
+      method: "GET",
       headers: {
         "X-Auth-Email": email,
-        "X-Auth-Key": apiKey,
+        "X-Auth-Key": apiKey
       }
     });
-
     if (!response.ok) {
       return new Response(`File not found or R2 Error: ${response.status}`, { status: response.status });
     }
-
     const contentType = getContentType(key);
     return new Response(response.body, {
       headers: {
@@ -603,28 +523,25 @@ async function handleRawRequest(request, env) {
     return new Response(error.message, { status: 500 });
   }
 }
-
+__name(handleRawRequest, "handleRawRequest");
 async function handleApiRequest(request, env) {
   const url = new URL(request.url);
   const path = url.pathname;
-
-  if (path.startsWith('/raw/')) {
+  if (path.startsWith("/raw/")) {
     return handleRawRequest(request, env);
   }
-
-  if (request.method === 'OPTIONS') {
+  if (request.method === "OPTIONS") {
     return new Response(null, {
       headers: corsHeaders
     });
   }
-
   try {
-    if (path === '/api/generateProxyIP') {
+    if (path === "/api/generateProxyIP") {
       const response = await fetch(PROXY_LIST_URL);
       const text = await response.text();
-      const lines = text.split('\n').filter(line => line.trim() !== '');
+      const lines = text.split("\n").filter((line) => line.trim() !== "");
       const randomLine = lines[Math.floor(Math.random() * lines.length)];
-      const proxyIP = randomLine.split(',')[0];
+      const proxyIP = randomLine.split(",")[0];
       return new Response(JSON.stringify({
         success: true,
         proxyIP
@@ -635,8 +552,7 @@ async function handleApiRequest(request, env) {
         }
       });
     }
-
-    if (request.method !== 'POST') {
+    if (request.method !== "POST") {
       return new Response(JSON.stringify({
         success: false,
         message: "Method not allowed"
@@ -645,89 +561,72 @@ async function handleApiRequest(request, env) {
         headers: corsHeaders
       });
     }
-
-    // Handle multipart form data separately
-    if (path === '/api/pages/deployDirect') {
-        const formData = await request.formData();
-        const email = formData.get('email');
-        const apiKey = formData.get('apiKey');
-        const accountId = formData.get('accountId');
-        const projectName = formData.get('projectName');
-
-        if (!email || !apiKey || !accountId || !projectName) {
-           return new Response(JSON.stringify({ success: false, message: "Missing required auth/project fields" }), {
-             status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
-           });
-        }
-
-        const newFormData = new FormData();
-        // Forward files and manifest. Cloudflare expects the file key to be the hash,
-        // and a 'manifest' key with the JSON string.
-        for (const [key, value] of formData.entries()) {
-           // Skip our metadata fields
-           if (['email', 'apiKey', 'accountId', 'projectName'].includes(key)) continue;
-
-           if (key === 'manifest') {
-               newFormData.append('manifest', value);
-           } else if (key.startsWith('B64_SPECIAL_')) {
-               // Special files encoded as Base64 to bypass proxy multipart bugs
-               const actualFilename = key.replace('B64_SPECIAL_', '');
-
-               let mimeType = 'application/octet-stream';
-               if (actualFilename === '_worker.js') mimeType = 'application/javascript';
-               else if (actualFilename === '_routes.json') mimeType = 'application/json';
-
-               // Decode base64 to buffer
-               const binaryString = atob(value);
-               const len = binaryString.length;
-               const bytes = new Uint8Array(len);
-               for (let i = 0; i < len; i++) {
-                   bytes[i] = binaryString.charCodeAt(i);
-               }
-
-               // Use Blob because File object is not universally available in standard CF Worker environments
-               const filePart = new Blob([bytes], { type: mimeType });
-               newFormData.append(actualFilename, filePart, actualFilename);
-           } else if (key.startsWith('B64_ASSET_')) {
-               const actualHash = key.replace('B64_ASSET_', '');
-               const binaryString = atob(value);
-               const len = binaryString.length;
-               const bytes = new Uint8Array(len);
-               for (let i = 0; i < len; i++) {
-                   bytes[i] = binaryString.charCodeAt(i);
-               }
-               // Try to determine mimeType if browser provided it? We don't have it, but CF pages doesn't care.
-               const filePart = new Blob([bytes], { type: 'application/octet-stream' });
-               newFormData.append(actualHash, filePart, actualHash);
-           } else {
-               newFormData.append(key, value);
-           }
-        }
-
-        const cfUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/pages/projects/${projectName}/deployments`;
-        const res = await fetch(cfUrl, {
-            method: 'POST',
-            headers: {
-               "X-Auth-Email": email,
-               "X-Auth-Key": apiKey
-               // Do not set Content-Type here, let fetch handle the boundary for FormData
-            },
-            body: newFormData
-        });
-
-        const data = await res.json();
-        if (!res.ok || (data && data.success === false)) {
-            const err = data?.errors?.[0]?.message || `CF API Error: ${res.status}`;
-            return new Response(JSON.stringify({ success: false, message: err }), {
-                status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
-            });
-        }
-
-        return new Response(JSON.stringify({ success: true, result: data.result || data }), {
+    if (path === "/api/pages/deployDirect") {
+      const formData = await request.formData();
+      const email2 = formData.get("email");
+      const apiKey2 = formData.get("apiKey");
+      const accountId2 = formData.get("accountId");
+      const projectName = formData.get("projectName");
+      if (!email2 || !apiKey2 || !accountId2 || !projectName) {
+        return new Response(JSON.stringify({ success: false, message: "Missing required auth/project fields" }), {
+          status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
+      }
+      const newFormData = new FormData();
+      for (const [key, value] of formData.entries()) {
+        if (["email", "apiKey", "accountId", "projectName"].includes(key)) continue;
+        if (key === "manifest") {
+          newFormData.append("manifest", value);
+        } else if (key.startsWith("B64_SPECIAL_")) {
+          const actualFilename = key.replace("B64_SPECIAL_", "");
+          let mimeType = "application/octet-stream";
+          if (actualFilename === "_worker.js") mimeType = "application/javascript";
+          else if (actualFilename === "_routes.json") mimeType = "application/json";
+          const binaryString = atob(value);
+          const len = binaryString.length;
+          const bytes = new Uint8Array(len);
+          for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          const filePart = new Blob([bytes], { type: mimeType });
+          newFormData.append(actualFilename, filePart, actualFilename);
+        } else if (key.startsWith("B64_ASSET_")) {
+          const actualHash = key.replace("B64_ASSET_", "");
+          const binaryString = atob(value);
+          const len = binaryString.length;
+          const bytes = new Uint8Array(len);
+          for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          const filePart = new Blob([bytes], { type: "application/octet-stream" });
+          newFormData.append(actualHash, filePart, actualHash);
+        } else {
+          newFormData.append(key, value);
+        }
+      }
+      const cfUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId2}/pages/projects/${projectName}/deployments`;
+      const res = await fetch(cfUrl, {
+        method: "POST",
+        headers: {
+          "X-Auth-Email": email2,
+          "X-Auth-Key": apiKey2
+          // Do not set Content-Type here, let fetch handle the boundary for FormData
+        },
+        body: newFormData
+      });
+      const data = await res.json();
+      if (!res.ok || data && data.success === false) {
+        const err = data?.errors?.[0]?.message || `CF API Error: ${res.status}`;
+        return new Response(JSON.stringify({ success: false, message: err }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+      return new Response(JSON.stringify({ success: true, result: data.result || data }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
     }
-
     const body = await request.json();
     const {
       email,
@@ -735,25 +634,22 @@ async function handleApiRequest(request, env) {
       accountId
     } = body;
     const client = new CfClient(email, apiKey);
-
     switch (path) {
-      case '/api/userInfo':
+      case "/api/userInfo":
         return new Response(JSON.stringify(await client.getUserInfo()), {
           headers: {
             ...corsHeaders,
             "Content-Type": "application/json"
           }
         });
-
-      case '/api/accounts':
+      case "/api/accounts":
         return new Response(JSON.stringify(await client.getAccounts()), {
           headers: {
             ...corsHeaders,
             "Content-Type": "application/json"
           }
         });
-
-      case '/api/listWorkers':
+      case "/api/listWorkers":
         const workers = await client.listWorkers(accountId);
         const subdomain = await client.getOrCreateSubdomain(accountId);
         return new Response(JSON.stringify({
@@ -766,8 +662,7 @@ async function handleApiRequest(request, env) {
             "Content-Type": "application/json"
           }
         });
-
-      case '/api/getWorkerScript':
+      case "/api/getWorkerScript":
         const script = await client.getWorkerScript(accountId, body.workerName);
         return new Response(JSON.stringify({
           success: true,
@@ -778,8 +673,7 @@ async function handleApiRequest(request, env) {
             "Content-Type": "application/json"
           }
         });
-
-      case '/api/updateWorker':
+      case "/api/updateWorker":
         await client.updateWorker(accountId, body.workerName, body.scriptContent);
         return new Response(JSON.stringify({
           success: true,
@@ -790,8 +684,7 @@ async function handleApiRequest(request, env) {
             "Content-Type": "application/json"
           }
         });
-
-      case '/api/deleteWorker':
+      case "/api/deleteWorker":
         await client.deleteWorker(accountId, body.workerName);
         return new Response(JSON.stringify({
           success: true,
@@ -802,8 +695,7 @@ async function handleApiRequest(request, env) {
             "Content-Type": "application/json"
           }
         });
-
-      case '/api/createWorker': {
+      case "/api/createWorker": {
         const {
           workerName,
           scriptCode,
@@ -811,36 +703,33 @@ async function handleApiRequest(request, env) {
         } = body;
         const uuid = generateUUID();
         let finalScript = scriptCode.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, uuid);
-
         let proxyIP = "";
         let isp = "";
         let country = "";
         try {
           const pRes = await fetch(PROXY_LIST_URL);
           const pText = await pRes.text();
-          const pLines = pText.split('\n').filter(l => l.trim() !== '');
+          const pLines = pText.split("\n").filter((l) => l.trim() !== "");
           const randomLine = pLines[Math.floor(Math.random() * pLines.length)];
-          const parts = randomLine.split(',');
+          const parts = randomLine.split(",");
           proxyIP = parts[0]?.trim();
           country = parts[2]?.trim();
-          isp = parts.slice(3).join(',').trim();
+          isp = parts.slice(3).join(",").trim();
         } catch (e) {
           console.error("Failed to fetch proxy IP", e);
         }
-
         const result = await client.createWorker(accountId, sanitizeWorkerName(workerName), finalScript);
-        const subdomain = await client.getOrCreateSubdomain(accountId);
-        const host = `${result.workerName}.${subdomain}.workers.dev`;
+        const subdomain2 = await client.getOrCreateSubdomain(accountId);
+        const host = `${result.workerName}.${subdomain2}.workers.dev`;
         const pathSuffix = "%2FALL";
-
         const vmessId = "f282b878-8711-45a1-8c69-5564172123c1";
-        const remark = `${isp}+${country}`.replace(/\s+/g, '+');
+        const remark = `${isp}+${country}`.replace(/\s+/g, "+");
         const vmessJson = {
           add: host,
           aid: "0",
           alpn: "",
           fp: "",
-          host: host,
+          host,
           id: vmessId,
           net: "ws",
           path: pathSuffix,
@@ -854,7 +743,6 @@ async function handleApiRequest(request, env) {
         };
         const vmess = `vmess://${btoa(JSON.stringify(vmessJson))}`;
         const ss = `ss://${btoa(`none:${vmessId}`)}@${host}:443?path=${pathSuffix}&security=tls&host=${host}&type=ws&sni=${host}#${remark}`;
-
         return new Response(JSON.stringify({
           success: true,
           message: "Worker created",
@@ -876,8 +764,7 @@ async function handleApiRequest(request, env) {
           }
         });
       }
-
-      case '/api/proxyFetchFile': {
+      case "/api/proxyFetchFile": {
         const pRes = await fetch(body.url);
         if (!pRes.ok) throw new Error(`Failed to fetch from ${body.url}: ${pRes.status}`);
         const contentType = pRes.headers.get("Content-Type") || "application/octet-stream";
@@ -888,9 +775,8 @@ async function handleApiRequest(request, env) {
           }
         });
       }
-
-      case '/api/bulkDeleteWorkers': {
-        const delResults = await Promise.allSettled(body.workerNames.map(name => client.deleteWorker(accountId, name)));
+      case "/api/bulkDeleteWorkers": {
+        const delResults = await Promise.allSettled(body.workerNames.map((name) => client.deleteWorker(accountId, name)));
         return new Response(JSON.stringify({
           success: true,
           results: delResults
@@ -901,13 +787,12 @@ async function handleApiRequest(request, env) {
           }
         });
       }
-
-      case '/api/autoDiscoverConfig': {
+      case "/api/autoDiscoverConfig": {
         const {
           targetDomain
         } = body;
-        const domainParts = targetDomain.split('.').filter(p => p !== '*');
-        const rootDomain = domainParts.slice(-2).join('.');
+        const domainParts = targetDomain.split(".").filter((p) => p !== "*");
+        const rootDomain = domainParts.slice(-2).join(".");
         const zones = await client.listZones(rootDomain);
         if (zones.result && zones.result.length > 0) {
           return new Response(JSON.stringify({
@@ -932,16 +817,14 @@ async function handleApiRequest(request, env) {
           });
         }
       }
-
-      case '/api/listZones':
-        return new Response(JSON.stringify(await client.listZones(body.name, body.status !== undefined ? body.status : "active")), {
+      case "/api/listZones":
+        return new Response(JSON.stringify(await client.listZones(body.name, body.status !== void 0 ? body.status : "active")), {
           headers: {
             ...corsHeaders,
             "Content-Type": "application/json"
           }
         });
-
-      case '/api/createZone':
+      case "/api/createZone":
         try {
           const res = await client.createZone(accountId, body.zoneName);
           return new Response(JSON.stringify({ success: true, result: res.result }), {
@@ -949,11 +832,11 @@ async function handleApiRequest(request, env) {
           });
         } catch (e) {
           return new Response(JSON.stringify({ success: false, message: e.message }), {
-            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
           });
         }
-
-      case '/api/deleteZone':
+      case "/api/deleteZone":
         try {
           await client.deleteZone(body.zoneId);
           return new Response(JSON.stringify({ success: true, message: "Zone deleted" }), {
@@ -961,11 +844,11 @@ async function handleApiRequest(request, env) {
           });
         } catch (e) {
           return new Response(JSON.stringify({ success: false, message: e.message }), {
-            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
           });
         }
-
-      case '/api/listDnsRecords':
+      case "/api/listDnsRecords":
         try {
           const res = await client.listDnsRecords(body.zoneId);
           return new Response(JSON.stringify(res), {
@@ -973,11 +856,11 @@ async function handleApiRequest(request, env) {
           });
         } catch (e) {
           return new Response(JSON.stringify({ success: false, message: e.message }), {
-            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
           });
         }
-
-      case '/api/createDnsRecord':
+      case "/api/createDnsRecord":
         try {
           const res = await client.createDnsRecord(body.zoneId, body.type, body.name, body.content, body.proxied, body.ttl);
           return new Response(JSON.stringify(res), {
@@ -985,11 +868,11 @@ async function handleApiRequest(request, env) {
           });
         } catch (e) {
           return new Response(JSON.stringify({ success: false, message: e.message }), {
-            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
           });
         }
-
-      case '/api/deleteDnsRecord':
+      case "/api/deleteDnsRecord":
         try {
           const res = await client.deleteDnsRecord(body.zoneId, body.recordId);
           return new Response(JSON.stringify(res), {
@@ -997,11 +880,11 @@ async function handleApiRequest(request, env) {
           });
         } catch (e) {
           return new Response(JSON.stringify({ success: false, message: e.message }), {
-            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
           });
         }
-
-      case '/api/registerWildcard':
+      case "/api/registerWildcard":
         await client.registerCustomDomain(accountId, body.workerName, body.hostname, body.zoneId);
         return new Response(JSON.stringify({
           success: true,
@@ -1012,8 +895,7 @@ async function handleApiRequest(request, env) {
             "Content-Type": "application/json"
           }
         });
-
-      case '/api/listWildcard': {
+      case "/api/listWildcard": {
         const data = await client.listCustomDomains(accountId, body.workerName);
         return new Response(JSON.stringify({
           success: true,
@@ -1025,8 +907,7 @@ async function handleApiRequest(request, env) {
           }
         });
       }
-
-      case '/api/deleteWildcard': {
+      case "/api/deleteWildcard": {
         await client.deleteCustomDomain(accountId, body.domainId);
         return new Response(JSON.stringify({
           success: true,
@@ -1038,8 +919,7 @@ async function handleApiRequest(request, env) {
           }
         });
       }
-
-      case '/api/proxyFetch': {
+      case "/api/proxyFetch": {
         const pRes = await fetch(body.url);
         if (!pRes.ok) throw new Error(`Failed to fetch from ${body.url}: ${pRes.status}`);
         const pText = await pRes.text();
@@ -1053,8 +933,7 @@ async function handleApiRequest(request, env) {
           }
         });
       }
-
-      case '/api/workerAnalytics':
+      case "/api/workerAnalytics":
         const analytics = await client.getWorkerAnalytics(accountId, body.workerName);
         return new Response(JSON.stringify({
           success: true,
@@ -1065,8 +944,7 @@ async function handleApiRequest(request, env) {
             "Content-Type": "application/json"
           }
         });
-
-      case '/api/accountAnalytics':
+      case "/api/accountAnalytics":
         const accAnalytics = await client.getAccountAnalytics(accountId);
         return new Response(JSON.stringify({
           success: true,
@@ -1077,37 +955,32 @@ async function handleApiRequest(request, env) {
             "Content-Type": "application/json"
           }
         });
-
-      case '/api/bulkCreateWorkers': {
+      case "/api/bulkCreateWorkers": {
         const {
           accounts: targetAccounts,
           workerName,
           scriptCode,
           template
         } = body;
-
         let cachedProxyLines = null;
-        if (template === 'vmess' || template === 'vmess-only') {
+        if (template === "vmess" || template === "vmess-only") {
           try {
             const pRes = await fetch(PROXY_LIST_URL);
             const pText = await pRes.text();
-            cachedProxyLines = pText.split('\n').filter(l => l.trim() !== '');
+            cachedProxyLines = pText.split("\n").filter((l) => l.trim() !== "");
           } catch (e) {
             console.error("Failed to pre-fetch proxy list for bulk create", e);
           }
         }
-
         const results = await Promise.all(targetAccounts.map(async (acc) => {
           try {
             const accClient = new CfClient(acc.email, acc.apiKey);
             const uuid = generateUUID();
             let finalScript = scriptCode.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, uuid);
-
             let proxyIP = "";
             if (cachedProxyLines && cachedProxyLines.length > 0) {
-              proxyIP = cachedProxyLines[Math.floor(Math.random() * cachedProxyLines.length)].split(',')[0];
+              proxyIP = cachedProxyLines[Math.floor(Math.random() * cachedProxyLines.length)].split(",")[0];
             }
-
             const res = await accClient.createWorker(acc.accountId, sanitizeWorkerName(workerName), finalScript);
             const sub = await accClient.getOrCreateSubdomain(acc.accountId);
             return {
@@ -1134,59 +1007,50 @@ async function handleApiRequest(request, env) {
           }
         });
       }
-
-      case '/api/r2/listBuckets': {
+      case "/api/r2/listBuckets": {
         const res = await client.listR2Buckets(accountId);
-        let subdomain = "";
+        let subdomain2 = "";
         try {
-          subdomain = await client.getOrCreateSubdomain(accountId);
-        } catch (e) {}
+          subdomain2 = await client.getOrCreateSubdomain(accountId);
+        } catch (e) {
+        }
         return new Response(JSON.stringify({
           success: true,
-          result: res.result ? (res.result.buckets || res.result) : [],
-          subdomain
+          result: res.result ? res.result.buckets || res.result : [],
+          subdomain: subdomain2
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
-
-      case '/api/r2/createBucket': {
+      case "/api/r2/createBucket": {
         const res = await client.createR2Bucket(accountId, body.bucketName);
         return new Response(JSON.stringify({ success: true, result: res.result || res }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
-
-      case '/api/r2/deleteBucket': {
+      case "/api/r2/deleteBucket": {
         const { bucketName } = body;
-
-        // Force Delete: List all objects and delete them first
         try {
           const objectsRes = await client.listR2Objects(accountId, bucketName);
           const objects = objectsRes.result?.objects || (Array.isArray(objectsRes.result) ? objectsRes.result : []);
-
           if (objects.length > 0) {
-            // Delete objects one by one (or bulk if we implement it, but for now loop)
-            await Promise.all(objects.map(obj => client.deleteR2Object(accountId, bucketName, obj.key)));
+            await Promise.all(objects.map((obj) => client.deleteR2Object(accountId, bucketName, obj.key)));
           }
         } catch (e) {
           console.error("Failed to clear bucket before deletion:", e);
         }
-
         const res = await client.deleteR2Bucket(accountId, bucketName);
         return new Response(JSON.stringify({ success: true, result: res.result || res }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
-
-      case '/api/r2/listObjects': {
+      case "/api/r2/listObjects": {
         const res = await client.listR2Objects(accountId, body.bucketName);
         return new Response(JSON.stringify({ success: true, result: res.result || res }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
-
-      case '/api/r2/uploadObject': {
+      case "/api/r2/uploadObject": {
         const binary = atob(body.content);
         const bytes = new Uint8Array(binary.length);
         for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
@@ -1195,17 +1059,15 @@ async function handleApiRequest(request, env) {
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
-
-      case '/api/r2/deleteObject': {
+      case "/api/r2/deleteObject": {
         const res = await client.deleteR2Object(accountId, body.bucketName, body.key);
         return new Response(JSON.stringify({ success: true, result: res.result || res }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
-
-      case '/api/r2/deployWorker': {
+      case "/api/r2/deployWorker": {
         const { targetWorkerName, r2Bucket } = body;
-        const script = `
+        const script2 = `
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -1236,142 +1098,118 @@ export default {
     return new Response('Selamat datang di Worker R2 Proxy', { status: 200 });
   },
 };`;
-
         const bindings = [
           { type: "r2_bucket", name: "MY_BUCKET", bucket_name: r2Bucket }
         ];
-
-        const res = await client.createWorker(accountId, sanitizeWorkerName(targetWorkerName), script, bindings);
+        const res = await client.createWorker(accountId, sanitizeWorkerName(targetWorkerName), script2, bindings);
         return new Response(JSON.stringify({ success: true, result: res }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
-
-      case '/api/r2/setupProxy': {
+      case "/api/r2/setupProxy": {
         const { targetWorkerName, r2Email, r2ApiKey, r2AccountId, r2Bucket } = body;
-
-        // Mitigation: Fetch existing settings first to merge bindings
         const currentSettings = await client.getWorkerSettings(accountId, targetWorkerName);
-        const existingBindings = (currentSettings.result && currentSettings.result.bindings) || [];
-
+        const existingBindings = currentSettings.result && currentSettings.result.bindings || [];
         const newR2Bindings = [
           { type: "plain_text", name: "R2_EMAIL", text: r2Email },
           { type: "plain_text", name: "R2_API_KEY", text: r2ApiKey },
           { type: "plain_text", name: "R2_ACCOUNT_ID", text: r2AccountId },
           { type: "plain_text", name: "R2_BUCKET", text: r2Bucket }
         ];
-
-        // Merge: keep existing, overwrite R2 ones if they exist
-        const r2Keys = new Set(newR2Bindings.map(b => b.name));
+        const r2Keys = new Set(newR2Bindings.map((b) => b.name));
         const mergedBindings = [
-          ...existingBindings.filter(b => !r2Keys.has(b.name)),
+          ...existingBindings.filter((b) => !r2Keys.has(b.name)),
           ...newR2Bindings
         ];
-
         const settings = {
           bindings: mergedBindings
         };
-
         const res = await client.updateWorkerSettings(accountId, targetWorkerName, settings);
         return new Response(JSON.stringify({ success: true, result: res.result || res }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
-
       // --- Pages API Handlers ---
-      case '/api/pages/listProjects': {
+      case "/api/pages/listProjects": {
         const res = await client.listPagesProjects(accountId);
         return new Response(JSON.stringify({ success: true, result: res.result || res }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
-
-      case '/api/pages/createProject': {
+      case "/api/pages/createProject": {
         const { projectName, productionBranch } = body;
         const res = await client.createPagesProject(accountId, sanitizeWorkerName(projectName), productionBranch);
         return new Response(JSON.stringify({ success: true, result: res.result || res }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
-
-      case '/api/pages/deleteProject': {
+      case "/api/pages/deleteProject": {
         const { projectName } = body;
         const res = await client.deletePagesProject(accountId, projectName);
         return new Response(JSON.stringify({ success: true, result: res.result || res }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
-
-      case '/api/pages/listDeployments': {
+      case "/api/pages/listDeployments": {
         const { projectName } = body;
         const res = await client.listPagesDeployments(accountId, projectName);
         return new Response(JSON.stringify({ success: true, result: res.result || res }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
-
-      case '/api/pages/getDeploymentDetails': {
+      case "/api/pages/getDeploymentDetails": {
         const { projectName, deploymentId } = body;
         const res = await client.getPagesDeploymentDetails(accountId, projectName, deploymentId);
         return new Response(JSON.stringify(res), {
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
-
-      case '/api/pages/deleteDeployment': {
+      case "/api/pages/deleteDeployment": {
         const { projectName, deploymentId } = body;
         const res = await client.deletePagesDeployment(accountId, projectName, deploymentId);
         return new Response(JSON.stringify({ success: true, result: res }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
-
-      case '/api/pages/addDomain': {
+      case "/api/pages/addDomain": {
         const { projectName, domainName, zoneName } = body;
         const res = await client.addPagesDomain(accountId, sanitizeWorkerName(projectName), domainName);
-
-        // Auto-create CNAME record so the domain doesn't get stuck in 'pending'
         if (zoneName) {
           try {
             const zones = await client.listZones(zoneName);
-            const zone = zones.result && zones.result.find(z => z.name === zoneName);
+            const zone = zones.result && zones.result.find((z) => z.name === zoneName);
             if (zone) {
               const cnameContent = `${sanitizeWorkerName(projectName)}.pages.dev`;
-              // Fetch existing records to avoid conflicts
               const records = await client.listDnsRecords(zone.id, domainName);
               if (records.success && records.result) {
                 for (const record of records.result) {
                   await client.deleteDnsRecord(zone.id, record.id);
                 }
               }
-              await client.createDnsRecord(zone.id, 'CNAME', domainName, cnameContent, true);
+              await client.createDnsRecord(zone.id, "CNAME", domainName, cnameContent, true);
             }
           } catch (e) {
             console.error("Auto DNS creation failed:", e);
           }
         }
-
         return new Response(JSON.stringify({ success: true, result: res.result || res }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
-
-      case '/api/pages/listDomains': {
+      case "/api/pages/listDomains": {
         const { projectName } = body;
         const res = await client.listPagesDomains(accountId, sanitizeWorkerName(projectName));
         return new Response(JSON.stringify({ success: true, result: res.result || res }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
-
-      case '/api/pages/deleteDomain': {
+      case "/api/pages/deleteDomain": {
         const { projectName, domainName } = body;
         const res = await client.deletePagesDomain(accountId, sanitizeWorkerName(projectName), domainName);
         return new Response(JSON.stringify({ success: true, result: res.result || res }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
-
       default:
         return new Response(JSON.stringify({
           success: false,
@@ -1391,7 +1229,7 @@ export default {
     });
   }
 }
-
+__name(handleApiRequest, "handleApiRequest");
 function renderHTML() {
   return `
 <!DOCTYPE html>
@@ -1400,9 +1238,9 @@ function renderHTML() {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cloudflare Worker Manager Pro</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.tailwindcss.com"><\/script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"><\/script>
     <style>
         ::-webkit-scrollbar { width: 5px; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
@@ -1698,7 +1536,7 @@ function renderHTML() {
                         <option value="">No domains available</option>
                     </select>
                 </div>
-                
+
                 <!-- Select Worker -->
                 <div>
                     <label class="text-[9px] sm:text-[10px] text-slate-500 uppercase font-black mb-1 block">Select Worker</label>
@@ -1711,7 +1549,7 @@ function renderHTML() {
                         </button>
                     </div>
                 </div>
-                
+
                 <!-- Subdomain Prefixes -->
                 <div>
                     <label class="text-[9px] sm:text-[10px] text-slate-500 uppercase font-black mb-1 block">Subdomain Prefixes (One per line)</label>
@@ -1723,7 +1561,7 @@ function renderHTML() {
                     </div>
                     <p class="text-[8px] sm:text-[9px] text-slate-600 mt-1.5 sm:mt-2 italic">Format: prefix.domain.com atau domain.com (masukkan prefix saja)</p>
                 </div>
-                
+
                 <!-- Progress Bar -->
                 <div id="zoneProgress" class="hidden mt-1 sm:mt-2">
                     <div class="flex justify-between text-[8px] sm:text-[9px] mb-1">
@@ -1869,7 +1707,7 @@ function renderHTML() {
             document.getElementById('deployMenu').classList.add('hidden');
         }
     });
-</script>
+<\/script>
                     </div>
 
                     <div id="pagesUploadProgress" class="hidden glass-card p-4 rounded-2xl border border-blue-500/50 mb-4 flex items-center gap-4">
@@ -2502,7 +2340,7 @@ function renderHTML() {
         <div class="bg-[#161b22] border border-slate-800 rounded-3xl w-full max-w-5xl overflow-hidden shadow-2xl flex flex-col h-[90vh]">
             <div class="flex justify-between items-center p-6 border-b border-slate-800">
                 <h3 class="text-xl font-bold text-white">Deployment Configurations</h3>
-                
+
             </div>
             <div class="p-6 border-b border-slate-800 bg-[#0d1117] flex flex-col md:flex-row gap-4 items-center">
                 <div class="flex-1 w-full">
@@ -2951,7 +2789,7 @@ function renderHTML() {
                     });
                     const data = await res.json();
                     if (data.success) {
-                        addLogCustom(\`  ✔ Success: \${data.url}\`, 'green');
+                        addLogCustom(\`  \u2714 Success: \${data.url}\`, 'green');
                         customResults.push({
                             email: acc.email,
                             url: data.url,
@@ -2960,11 +2798,11 @@ function renderHTML() {
                         });
                         success++;
                     } else {
-                        addLogCustom(\`  ✘ Error: \${data.message}\`, 'red');
+                        addLogCustom(\`  \u2718 Error: \${data.message}\`, 'red');
                         fail++;
                     }
                 } catch (e) {
-                    addLogCustom(\`  ‼️ Error: \${e.message}\`, 'red');
+                    addLogCustom(\`  \u203C\uFE0F Error: \${e.message}\`, 'red');
                     fail++;
                 }
                 await new Promise(r => setTimeout(r, 1000));
@@ -3082,7 +2920,7 @@ function renderHTML() {
                     });
                     const data = await res.json();
                     if (data.success) {
-                        addLog(\`  ✔ Success: \${data.url}\`, 'green');
+                        addLog(\`  \u2714 Success: \${data.url}\`, 'green');
                         deploymentResults.push({
                             email: acc.email,
                             workerName: workerName,
@@ -3093,11 +2931,11 @@ function renderHTML() {
                         });
                         success++;
                     } else {
-                        addLog(\`  ✘ Error: \${data.message}\`, 'red');
+                        addLog(\`  \u2718 Error: \${data.message}\`, 'red');
                         fail++;
                     }
                 } catch (e) {
-                    addLog(\`  ‼️ Error: \${e.message}\`, 'red');
+                    addLog(\`  \u203C\uFE0F Error: \${e.message}\`, 'red');
                     fail++;
                 }
 
@@ -3651,18 +3489,18 @@ function renderHTML() {
     </div>
 
     <div class="flex items-center gap-2 text-slate-400 text-[11px] sm:text-xs mb-4 sm:mb-5 font-medium">
-        <i class="fa-solid fa-layer-group text-[10px] sm:text-xs"></i> 
+        <i class="fa-solid fa-layer-group text-[10px] sm:text-xs"></i>
         <span class="truncate">Paket: \${planName}</span>
     </div>
 
     <!-- Baris 1: Nameservers (kiri) + Kelola DNS (kanan) -->
     <div class="flex gap-2 sm:gap-3 mb-2 sm:mb-3">
         <button onclick="showNameserversModal('\${d.id}')" class="flex-1 bg-[#161b22] hover:bg-slate-800 text-white py-2 sm:py-2.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all border border-slate-700 flex items-center justify-center gap-1.5 sm:gap-2">
-            <i class="fa-solid fa-server text-[9px] sm:text-xs"></i> 
+            <i class="fa-solid fa-server text-[9px] sm:text-xs"></i>
             <span>Nameservers</span>
         </button>
         <button onclick="openDnsManager('\${d.id}', '\${d.name}')" class="flex-1 bg-[#161b22] hover:bg-slate-800 text-white py-2 sm:py-2.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all border border-slate-700 flex items-center justify-center gap-1.5 sm:gap-2">
-            <i class="fa-solid fa-network-wired text-[9px] sm:text-xs"></i> 
+            <i class="fa-solid fa-network-wired text-[9px] sm:text-xs"></i>
             <span>Kelola DNS</span>
         </button>
     </div>
@@ -3670,7 +3508,7 @@ function renderHTML() {
     <!-- Baris 2: Hapus (full width) -->
     <div>
         <button onclick="deleteManagerDomain('\${d.id}', '\${d.name}')" class="w-full bg-red-950/30 hover:bg-red-900/50 text-red-400 py-2 sm:py-2.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all border border-red-900/30 flex items-center justify-center gap-1.5 sm:gap-2">
-            <i class="fa-solid fa-trash-can text-[9px] sm:text-xs"></i> 
+            <i class="fa-solid fa-trash-can text-[9px] sm:text-xs"></i>
             <span>Hapus</span>
         </button>
     </div>
@@ -4844,7 +4682,7 @@ function renderHTML() {
                     <a href="https://\${p.subdomain}" target="_blank" class="text-[10px] text-blue-400 hover:underline flex items-center gap-1 mb-2">
                         <i class="fa-solid fa-external-link text-[8px]"></i> Visit \${p.subdomain}
                     </a>
-                    
+
                 </div>
             \`).join('');
         }
@@ -5414,22 +5252,197 @@ async function sha256(blob) {
             });
         }
 
-</script>
+<\/script>
 </body>
 </html>
   `;
 }
-
-export default {
+__name(renderHTML, "renderHTML");
+var boboy_default = {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
-    if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/raw/')) {
+    if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/raw/")) {
       return handleApiRequest(request, env);
     }
     return new Response(renderHTML(), {
       headers: {
         "Content-Type": "text/html;charset=UTF-8"
-      },
+      }
     });
   }
 };
+
+// ../home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/templates/middleware/middleware-ensure-req-body-drained.ts
+var drainBody = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx) => {
+  try {
+    return await middlewareCtx.next(request, env);
+  } finally {
+    try {
+      if (request.body !== null && !request.bodyUsed) {
+        const reader = request.body.getReader();
+        while (!(await reader.read()).done) {
+        }
+      }
+    } catch (e) {
+      console.error("Failed to drain the unused request body.", e);
+    }
+  }
+}, "drainBody");
+var middleware_ensure_req_body_drained_default = drainBody;
+
+// ../home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/templates/middleware/middleware-miniflare3-json-error.ts
+function reduceError(e) {
+  return {
+    name: e?.name,
+    message: e?.message ?? String(e),
+    stack: e?.stack,
+    cause: e?.cause === void 0 ? void 0 : reduceError(e.cause)
+  };
+}
+__name(reduceError, "reduceError");
+var jsonError = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx) => {
+  try {
+    return await middlewareCtx.next(request, env);
+  } catch (e) {
+    const error = reduceError(e);
+    return Response.json(error, {
+      status: 500,
+      headers: { "MF-Experimental-Error-Stack": "true" }
+    });
+  }
+}, "jsonError");
+var middleware_miniflare3_json_error_default = jsonError;
+
+// .wrangler/tmp/bundle-EK7gBJ/middleware-insertion-facade.js
+var __INTERNAL_WRANGLER_MIDDLEWARE__ = [
+  middleware_ensure_req_body_drained_default,
+  middleware_miniflare3_json_error_default
+];
+var middleware_insertion_facade_default = boboy_default;
+
+// ../home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/templates/middleware/common.ts
+var __facade_middleware__ = [];
+function __facade_register__(...args) {
+  __facade_middleware__.push(...args.flat());
+}
+__name(__facade_register__, "__facade_register__");
+function __facade_invokeChain__(request, env, ctx, dispatch, middlewareChain) {
+  const [head, ...tail] = middlewareChain;
+  const middlewareCtx = {
+    dispatch,
+    next(newRequest, newEnv) {
+      return __facade_invokeChain__(newRequest, newEnv, ctx, dispatch, tail);
+    }
+  };
+  return head(request, env, ctx, middlewareCtx);
+}
+__name(__facade_invokeChain__, "__facade_invokeChain__");
+function __facade_invoke__(request, env, ctx, dispatch, finalMiddleware) {
+  return __facade_invokeChain__(request, env, ctx, dispatch, [
+    ...__facade_middleware__,
+    finalMiddleware
+  ]);
+}
+__name(__facade_invoke__, "__facade_invoke__");
+
+// .wrangler/tmp/bundle-EK7gBJ/middleware-loader.entry.ts
+var __Facade_ScheduledController__ = class ___Facade_ScheduledController__ {
+  constructor(scheduledTime, cron, noRetry) {
+    this.scheduledTime = scheduledTime;
+    this.cron = cron;
+    this.#noRetry = noRetry;
+  }
+  static {
+    __name(this, "__Facade_ScheduledController__");
+  }
+  #noRetry;
+  noRetry() {
+    if (!(this instanceof ___Facade_ScheduledController__)) {
+      throw new TypeError("Illegal invocation");
+    }
+    this.#noRetry();
+  }
+};
+function wrapExportedHandler(worker) {
+  if (__INTERNAL_WRANGLER_MIDDLEWARE__ === void 0 || __INTERNAL_WRANGLER_MIDDLEWARE__.length === 0) {
+    return worker;
+  }
+  for (const middleware of __INTERNAL_WRANGLER_MIDDLEWARE__) {
+    __facade_register__(middleware);
+  }
+  const fetchDispatcher = /* @__PURE__ */ __name(function(request, env, ctx) {
+    if (worker.fetch === void 0) {
+      throw new Error("Handler does not export a fetch() function.");
+    }
+    return worker.fetch(request, env, ctx);
+  }, "fetchDispatcher");
+  return {
+    ...worker,
+    fetch(request, env, ctx) {
+      const dispatcher = /* @__PURE__ */ __name(function(type, init) {
+        if (type === "scheduled" && worker.scheduled !== void 0) {
+          const controller = new __Facade_ScheduledController__(
+            Date.now(),
+            init.cron ?? "",
+            () => {
+            }
+          );
+          return worker.scheduled(controller, env, ctx);
+        }
+      }, "dispatcher");
+      return __facade_invoke__(request, env, ctx, dispatcher, fetchDispatcher);
+    }
+  };
+}
+__name(wrapExportedHandler, "wrapExportedHandler");
+function wrapWorkerEntrypoint(klass) {
+  if (__INTERNAL_WRANGLER_MIDDLEWARE__ === void 0 || __INTERNAL_WRANGLER_MIDDLEWARE__.length === 0) {
+    return klass;
+  }
+  for (const middleware of __INTERNAL_WRANGLER_MIDDLEWARE__) {
+    __facade_register__(middleware);
+  }
+  return class extends klass {
+    #fetchDispatcher = /* @__PURE__ */ __name((request, env, ctx) => {
+      this.env = env;
+      this.ctx = ctx;
+      if (super.fetch === void 0) {
+        throw new Error("Entrypoint class does not define a fetch() function.");
+      }
+      return super.fetch(request);
+    }, "#fetchDispatcher");
+    #dispatcher = /* @__PURE__ */ __name((type, init) => {
+      if (type === "scheduled" && super.scheduled !== void 0) {
+        const controller = new __Facade_ScheduledController__(
+          Date.now(),
+          init.cron ?? "",
+          () => {
+          }
+        );
+        return super.scheduled(controller);
+      }
+    }, "#dispatcher");
+    fetch(request) {
+      return __facade_invoke__(
+        request,
+        this.env,
+        this.ctx,
+        this.#dispatcher,
+        this.#fetchDispatcher
+      );
+    }
+  };
+}
+__name(wrapWorkerEntrypoint, "wrapWorkerEntrypoint");
+var WRAPPED_ENTRY;
+if (typeof middleware_insertion_facade_default === "object") {
+  WRAPPED_ENTRY = wrapExportedHandler(middleware_insertion_facade_default);
+} else if (typeof middleware_insertion_facade_default === "function") {
+  WRAPPED_ENTRY = wrapWorkerEntrypoint(middleware_insertion_facade_default);
+}
+var middleware_loader_entry_default = WRAPPED_ENTRY;
+export {
+  __INTERNAL_WRANGLER_MIDDLEWARE__,
+  middleware_loader_entry_default as default
+};
+//# sourceMappingURL=boboy.js.map

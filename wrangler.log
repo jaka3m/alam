@@ -11,3 +11,25 @@
 ⎔ Local server updated and ready
 [wrangler:info] GET / 200 OK (46ms)
 [wrangler:info] POST /api/proxyFetch 200 OK (803ms)
+⎔ Reloading local server...
+⎔ Local server updated and ready
+⎔ Reloading local server...
+⎔ Local server updated and ready
+⎔ Reloading local server...
+⎔ Local server updated and ready
+⎔ Reloading local server...
+⎔ Local server updated and ready
+[31m✘ [41;31m[[41;97mERROR[41;31m][0m [1mBuild failed with 1 error:[0m
+
+  [31m✘ [41;31m[[41;97mERROR[41;31m][0m [1mExpected ";" but found "Are"[0m
+
+      boboy.js:5352:26:
+  [37m      5352 │             if (!confirm(`[32mAre[37m you sure you want to delete deploy...
+             │                           [32m~~~[37m
+             ╵                           [32m;[0m
+
+
+
+
+⎔ Reloading local server...
+⎔ Local server updated and ready

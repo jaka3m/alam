@@ -440,6 +440,11 @@ var CfClient = class {
   async getPagesDeploymentDetails(accountId, projectName, deploymentId) {
     return this._fetch(`/accounts/${accountId}/pages/projects/${projectName}/deployments/${deploymentId}`);
   }
+  async deletePagesDeployment(accountId, projectName, deploymentId) {
+    return this._fetch(`/accounts/${accountId}/pages/projects/${projectName}/deployments/${deploymentId}`, {
+      method: "DELETE"
+    });
+  }
   async addPagesDomain(accountId, projectName, domainName) {
     return this._fetch(`/accounts/${accountId}/pages/projects/${projectName}/domains`, {
       method: "POST",
@@ -1156,6 +1161,13 @@ export default {
         const { projectName, deploymentId } = body;
         const res = await client.getPagesDeploymentDetails(accountId, projectName, deploymentId);
         return new Response(JSON.stringify(res), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+      case "/api/pages/deleteDeployment": {
+        const { projectName, deploymentId } = body;
+        const res = await client.deletePagesDeployment(accountId, projectName, deploymentId);
+        return new Response(JSON.stringify({ success: true, result: res }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
@@ -5162,13 +5174,41 @@ async function sha256(blob) {
                     </td>
                     <td class="px-4 py-3 text-slate-500 font-mono text-[10px] whitespace-nowrap">\${new Date(dep.created_on).toLocaleString()}</td>
                     <td class="px-4 py-3 font-bold capitalize \${dep.latest_stage.status === 'success' ? 'text-green-500' : (dep.latest_stage.status === 'active' ? 'text-blue-500' : 'text-red-500')}">\${dep.latest_stage.status}</td>
-                    <td class="px-4 py-3 text-right">
+                    <td class="px-4 py-3 text-right whitespace-nowrap flex gap-2 justify-end">
                         <button onclick="viewPagesDeployment('\${dep.id}', '\${dep.url}')" class="bg-slate-800 hover:bg-slate-700 p-2 rounded text-white transition-all" title="View Deployment JSON">
                             <i class="fa-solid fa-file-code"></i>
+                        </button>
+                        <button onclick="deletePagesDeployment('\${dep.id}')" class="bg-red-500/10 hover:bg-red-500/20 text-red-500 p-2 rounded transition-all" title="Delete Deployment">
+                            <i class="fa-solid fa-trash"></i>
                         </button>
                     </td>
                 </tr>
             \`}).join('');
+        }
+
+        async function deletePagesDeployment(deploymentId) {
+            if (!confirm("Are you sure you want to delete deployment " + deploymentId + "?")) return;
+
+            const idx = document.getElementById('pagesAccountSelect').value;
+            const acc = accounts[idx];
+
+            try {
+                const res = await fetch(API_BASE_URL + '/api/pages/deleteDeployment', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: acc.email, apiKey: acc.apiKey, accountId: acc.accountId, projectName: currentActivePagesProject, deploymentId: deploymentId })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    // Refresh the deployments list
+                    loadPagesDeployments();
+                } else {
+                    alert("Delete failed: " + (data.message || "Unknown error"));
+                }
+            } catch (e) {
+                alert("Error deleting deployment: " + e.message);
+            }
         }
 
         async function viewPagesDeployment(deploymentId, baseUrl) {

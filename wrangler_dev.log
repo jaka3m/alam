@@ -1,0 +1,38 @@
+
+ ⛅️ wrangler 4.95.0
+───────────────────
+⎔ Starting local server...
+[wrangler:info] Ready on http://localhost:8787
+[wrangler:info] GET / 200 OK (41ms)
+[wrangler:info] POST /api/proxyFetch 200 OK (509ms)
+[wrangler:info] GET / 200 OK (14ms)
+[wrangler:info] POST /api/proxyFetch 200 OK (315ms)
+[wrangler:info] GET / 200 OK (8ms)
+[wrangler:info] POST /api/proxyFetch 200 OK (280ms)
+[wrangler:info] GET / 200 OK (7ms)
+[wrangler:info] GET / 200 OK (9ms)
+[wrangler:info] POST /api/proxyFetch 200 OK (323ms)
+[wrangler:info] POST /api/proxyFetch 200 OK (195ms)
+[wrangler:info] GET / 200 OK (7ms)
+[wrangler:info] GET / 200 OK (8ms)
+[wrangler:info] POST /api/proxyFetch 200 OK (255ms)
+[31m✘ [41;31m[[41;97mERROR[41;31m][0m [1mUncaught Error: Network connection lost. [0m
+
+
+[wrangler:info] POST /api/proxyFetch 200 OK (179ms)
+[wrangler:info] GET / 200 OK (7ms)
+[wrangler:info] GET / 200 OK (10ms)
+[wrangler:info] POST /api/proxyFetch 200 OK (282ms)
+[wrangler:info] POST /api/proxyFetch 200 OK (202ms)
+[wrangler:info] GET / 200 OK (7ms)
+[wrangler:info] GET / 200 OK (9ms)
+[wrangler:info] POST /api/proxyFetch 200 OK (292ms)
+[wrangler:info] POST /api/proxyFetch 200 OK (180ms)
+[wrangler:info] GET / 200 OK (8ms)
+[wrangler:info] GET / 200 OK (8ms)
+[wrangler:info] POST /api/proxyFetch 200 OK (284ms)
+[wrangler:info] POST /api/proxyFetch 200 OK (195ms)
+[wrangler:info] GET / 200 OK (10ms)
+[wrangler:info] GET / 200 OK (13ms)
+[wrangler:info] POST /api/proxyFetch 200 OK (367ms)
+[wrangler:info] POST /api/proxyFetch 200 OK (217ms)
