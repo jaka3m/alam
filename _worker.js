@@ -3783,7 +3783,7 @@ function buildCountryFlag(page) {
       : '';
   return new Response(`
 <!DOCTYPE html>
-<html>
+<html lang="id" data-theme="dark">
     <head>
         <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -4198,17 +4198,27 @@ function buildCountryFlag(page) {
                 ${showOptionsScript}
                 
                 <script>
-            /* [PERBAIKAN 4]: Menggunakan document.documentElement untuk mendapatkan tag <html> */
-            function toggleDarkMode() {
-                const rootElement = document.documentElement; // <-- Diperbaiki!
-                if (rootElement.classList.contains("dark")) {
-                  rootElement.classList.remove("dark");
-                  localStorage.setItem('theme', 'light');
-                } else {
-                  rootElement.classList.add("dark");
-                  localStorage.setItem('theme', 'dark');
-                }
+            function toggleTheme() {
+                const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+                document.documentElement.dataset.theme = next;
+                try { localStorage.setItem("j1-theme", next); } catch(e){}
             }
+
+            // Assign to the button with id="themeToggle"
+            document.addEventListener('DOMContentLoaded', () => {
+                const themeBtn = document.getElementById("themeToggle");
+                if (themeBtn) {
+                    themeBtn.addEventListener("click", toggleTheme);
+                }
+
+                // Initialize theme
+                try {
+                    const savedTheme = localStorage.getItem("j1-theme");
+                    if (savedTheme) {
+                        document.documentElement.dataset.theme = savedTheme;
+                    }
+                } catch (e) {}
+            });
         </script>
                 <script>
                 document.addEventListener('DOMContentLoaded', () => {
