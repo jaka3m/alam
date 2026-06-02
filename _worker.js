@@ -4089,46 +4089,43 @@ function buildCountryFlag(page) {
     }
 
     .quantum-pagination {
-    display: flex;
-    justify-content: center;
-    gap: 0.5rem;
-    margin-top: 2rem;
-    flex-wrap: wrap;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 6px;
+      margin-top: 20px;
+      flex-wrap: wrap;
     }
     .quantum-pagination a {
-        padding: 0.5rem 0.7rem;
-        background: #10b981;
-        color: white;
-        text-decoration: none;
-        border-radius: 12px;
-        border: 1px solid #059669;
-        transition: all 0.3s ease;
-        font-family: 'Rajdhani', sans-serif;
-        font-weight: 800;
-        min-width: 30px;
-        text-align: center;
-        font-size: 0.7rem;
+      height: 30px;
+      min-width: 30px;
+      padding: 0 10px;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--mint);
+      font-size: 10px;
+      font-weight: 850;
+      letter-spacing: .07em;
+      background: rgba(32,227,178,.07);
+      border: 1px solid rgba(32,227,178,.19);
+      text-decoration: none;
+      transition: all 0.2s;
     }
     .quantum-pagination a:hover {
-        background: #059669;
-        color: white;
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        font-weight: 900;
+      background: rgba(32,227,178,.15);
     }
     .quantum-pagination a.active {
-        background: #f59e0b;
-        color: white !important;
-        border-color: #d97706;
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
-        font-weight: 900;
+      color: #d3c5ff;
+      background: rgba(164,130,255,.15);
+      border-color: rgba(164,130,255,.35);
     }
-    .pagination-number.active {
-        background: #f59e0b;
-        color: white !important;
-        border-color: #d97706;
-        font-weight: 900;
+    html[data-theme="light"] .quantum-pagination a.active {
+      color: #6343c4;
+    }
+    .quantum-pagination .pagination-arrow {
+      font-size: 14px;
     }
 
   </style>
@@ -4288,7 +4285,7 @@ function buildCountryFlag(page) {
                 ${nextPage}
             </div>
            
-          <div style="text-align: center; margin-top: 16px; color: var(--primary); font-family: 'Rajdhani', sans-serif;">
+          <div style="text-align: center; margin-top: 16px; color: var(--muted); font-size: 11px;">
             Showing ${startIndex + 1} to ${endIndex} of ${totalFilteredConfigs} Proxies
           </div>
       </section>
