@@ -4010,6 +4010,7 @@ function renderHTML() {
         async function loadLinkedDomains() {
             const workerName = document.getElementById('targetWorkerSelect').value;
             const idx = document.getElementById('zoneAccountSelect').value;
+            const zoneId = document.getElementById('targetZoneSelect').value;
             const container = document.getElementById('linkedDomainsContainer');
             const list = document.getElementById('linkedDomainsList');
 
@@ -4019,6 +4020,9 @@ function renderHTML() {
             }
 
             const acc = accounts[idx];
+            const selectedZone = currentZones.find(z => z.id === zoneId);
+            const zoneName = selectedZone ? selectedZone.name : null;
+
             container.classList.remove('hidden');
             list.innerHTML = '<div class="text-center py-4 text-slate-500 text-[10px]">Loading linked domains...</div>';
 
@@ -4030,12 +4034,19 @@ function renderHTML() {
                 });
                 const data = await res.json();
                 if (data.success && data.domains.length > 0) {
-                    list.innerHTML = data.domains.map(d => \`
+                    list.innerHTML = data.domains.map(d => {
+                        let displayName = d.hostname;
+                        if (zoneName && d.hostname.endsWith('.' + zoneName)) {
+                            displayName = d.hostname.slice(0, -(zoneName.length + 1));
+                        }
+
+                        return \`
                         <div class="flex justify-between items-center bg-[#0d1117] p-2 rounded-lg border border-slate-800">
-                            <span class="text-[10px] text-white font-mono">\${d.hostname}</span>
+                            <span class="text-[10px] text-white font-mono">\${displayName}</span>
                             <button onclick="deleteLinkedDomain('\${d.id}', '\${d.hostname}')" class="text-red-500 hover:text-red-400 p-1"><i class="fa-solid fa-trash-can text-[10px]"></i></button>
                         </div>
-                    \`).join('');
+                    \`;
+                    }).join('');
                 } else {
                     list.innerHTML = '<div class="text-center py-4 text-slate-600 text-[10px]">No linked domains found.</div>';
                 }
