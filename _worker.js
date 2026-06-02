@@ -3586,12 +3586,16 @@ function buildCountryFlag(page) {
   return flagElement;
 }
     const getFlagEmoji = (countryCode) => {
-      if (!countryCode) return '🏳️';
-      return countryCode
-        .toUpperCase()
-        .split('')
-        .map((char) => String.fromCodePoint(0x1f1e6 - 65 + char.charCodeAt(0)))
-        .join('');
+      if (!countryCode || typeof countryCode !== 'string' || countryCode.length !== 2) return '🏳️';
+      try {
+        return countryCode
+          .toUpperCase()
+          .split('')
+          .map((char) => String.fromCodePoint(0x1f1e6 - 65 + char.charCodeAt(0)))
+          .join('');
+      } catch (e) {
+        return '🏳️';
+      }
     };
     const url = new URL(request.url);
     const rootDomain = config.ROOT_DOMAIN || url.hostname.replace(/^[^.]+\./, '');
@@ -4083,7 +4087,7 @@ function buildCountryFlag(page) {
       .headline p{font-size:13px}
       .info-box{padding:11px}
       .servers{padding:15px}
-      .list{grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+      .list{grid-template-columns:repeat(4,minmax(0,1fr));gap:11px}
       .modal-backdrop{align-items:center}
       .metric{font-size:10px}
     }
@@ -4192,6 +4196,7 @@ function buildCountryFlag(page) {
         <div class="server-head"><h2>Server</h2><span class="count" id="count">${totalFilteredConfigs}</span></div>
         <div class="list" id="list">
                 ${cardsHTML}
+        </div>
                 ${showOptionsScript}
                 
                 <script>
