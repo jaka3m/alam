@@ -1,0 +1,12 @@
+
+ ⛅️ wrangler 4.96.0
+───────────────────
+⎔ Starting local server...
+
+[31m✘ [41;31m[[41;97mERROR[41;31m][0m [1mThe Workers runtime failed to start. There is likely additional logging output above.[0m
+
+
+[32mIf you think this is a bug then please create an issue at https://github.com/cloudflare/workers-sdk/issues/new/choose[0m
+*** Fatal uncaught kj::Exception: kj/async-io-unix.c++:945: failed: ::bind(sockfd, &addr.generic, addrlen): Address already in use; toString() = 127.0.0.1:8787
+stack: /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/node_modules/@cloudflare/workerd-linux-64/bin/workerd@5292b66 /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/node_modules/@cloudflare/workerd-linux-64/bin/workerd@5292939 /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/node_modules/@cloudflare/workerd-linux-64/bin/workerd@5290e2d /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/node_modules/@cloudflare/workerd-linux-64/bin/workerd@201926c /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/node_modules/@cloudflare/workerd-linux-64/bin/workerd@2019bd1 /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/node_modules/@cloudflare/workerd-linux-64/bin/workerd@201a6fd /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/node_modules/@cloudflare/workerd-linux-64/bin/workerd@201bd7a /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/node_modules/@cloudflare/workerd-linux-64/bin/workerd@1f6f389 /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/node_modules/@cloudflare/workerd-linux-64/bin/workerd@52c6855 /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/node_modules/@cloudflare/workerd-linux-64/bin/workerd@52c6d78 /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/node_modules/@cloudflare/workerd-linux-64/bin/workerd@52c483e /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/node_modules/@cloudflare/workerd-linux-64/bin/workerd@52c463e /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/node_modules/@cloudflare/workerd-linux-64/bin/workerd@1f56d17 /lib/x86_64-linux-gnu/libc.so.6@2a1c9 /lib/x86_64-linux-gnu/libc.so.6@2a28a /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/node_modules/@cloudflare/workerd-linux-64/bin/workerd@1f56024
+🪵  Logs were written to "/home/jules/.config/.wrangler/logs/wrangler-2026-06-02_09-45-10_916.log"

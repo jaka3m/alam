@@ -480,7 +480,14 @@ const SIDEBAR_COMPONENT = `
             right: 0;
             border: 2px solid transparent;
         }
-    </style>
+
+    .pagination button{
+      background: rgba(32,227,178,.07); border: 1px solid rgba(32,227,178,.2); color: var(--mint);
+      padding: 5px 10px; border-radius: 8px; font-size: 10px; font-weight: 800; cursor: pointer;
+    }
+    .pagination button:disabled{ opacity: 0.5; cursor: not-allowed; }
+    .pagination span{ color: var(--muted); font-size: 10px; align-self: center; }
+</style>
     <div x-data="{ sidebarOpen: false, activeMenu: 'create', showSearch: ['/web', '/'].includes(window.location.pathname), wildcardTab: 'list' }" @keydown.escape.window="sidebarOpen = false" class="relative">
         <script>
             function toggleDarkMode() {
@@ -1660,7 +1667,14 @@ function mamangenerateHTML() {
         font-size: 1.3rem;
       }
     }
-  </style>
+
+    .pagination button{
+      background: rgba(32,227,178,.07); border: 1px solid rgba(32,227,178,.2); color: var(--mint);
+      padding: 5px 10px; border-radius: 8px; font-size: 10px; font-weight: 800; cursor: pointer;
+    }
+    .pagination button:disabled{ opacity: 0.5; cursor: not-allowed; }
+    .pagination span{ color: var(--muted); font-size: 10px; align-self: center; }
+</style>
 </head>
 <body>
   ${SIDEBAR_COMPONENT}
@@ -2384,7 +2398,14 @@ async function handleStatsRequest(config) {
                     min-width: 36px;
                 }
             }
-        </style>
+
+    .pagination button{
+      background: rgba(32,227,178,.07); border: 1px solid rgba(32,227,178,.2); color: var(--mint);
+      padding: 5px 10px; border-radius: 8px; font-size: 10px; font-weight: 800; cursor: pointer;
+    }
+    .pagination button:disabled{ opacity: 0.5; cursor: not-allowed; }
+    .pagination span{ color: var(--muted); font-size: 10px; align-self: center; }
+</style>
     </head>
     <body>
         ${SIDEBAR_COMPONENT}
@@ -2567,7 +2588,14 @@ async function handleStatsRequest(config) {
                     line-height: 1.6;
                     font-size: 1.1rem;
                 }
-            </style>
+
+    .pagination button{
+      background: rgba(32,227,178,.07); border: 1px solid rgba(32,227,178,.2); color: var(--mint);
+      padding: 5px 10px; border-radius: 8px; font-size: 10px; font-weight: 800; cursor: pointer;
+    }
+    .pagination button:disabled{ opacity: 0.5; cursor: not-allowed; }
+    .pagination span{ color: var(--muted); font-size: 10px; align-self: center; }
+</style>
         </head>
         <body>
             <div class="error-container">
@@ -2909,7 +2937,14 @@ async function handleKuotaRequest() {
         }
         .form-container > *:nth-child(1) { animation-delay: 0.1s; }
         .form-container > *:nth-child(2) { animation-delay: 0.2s; }
-    </style>
+
+    .pagination button{
+      background: rgba(32,227,178,.07); border: 1px solid rgba(32,227,178,.2); color: var(--mint);
+      padding: 5px 10px; border-radius: 8px; font-size: 10px; font-weight: 800; cursor: pointer;
+    }
+    .pagination button:disabled{ opacity: 0.5; cursor: not-allowed; }
+    .pagination span{ color: var(--muted); font-size: 10px; align-self: center; }
+</style>
 </head>
 <body class="min-h-screen flex flex-col">
 ${SIDEBAR_COMPONENT}
@@ -3349,7 +3384,14 @@ async function handleSubRequest(hostnem, env, config) {
                 margin-bottom: 20px;
             }
         }
-    </style>
+
+    .pagination button{
+      background: rgba(32,227,178,.07); border: 1px solid rgba(32,227,178,.2); color: var(--mint);
+      padding: 5px 10px; border-radius: 8px; font-size: 10px; font-weight: 800; cursor: pointer;
+    }
+    .pagination button:disabled{ opacity: 0.5; cursor: not-allowed; }
+    .pagination span{ color: var(--muted); font-size: 10px; align-self: center; }
+</style>
 </head>
 <body>
     ${SIDEBAR_COMPONENT}
@@ -3837,7 +3879,14 @@ async function handleWebRequest(request, env, config) {
       .modal-backdrop{align-items:center}
       .metric{font-size:10px}
     }
-  </style>
+
+    .pagination button{
+      background: rgba(32,227,178,.07); border: 1px solid rgba(32,227,178,.2); color: var(--mint);
+      padding: 5px 10px; border-radius: 8px; font-size: 10px; font-weight: 800; cursor: pointer;
+    }
+    .pagination button:disabled{ opacity: 0.5; cursor: not-allowed; }
+    .pagination span{ color: var(--muted); font-size: 10px; align-self: center; }
+</style>
 </head>
 <body>
 ${SIDEBAR_COMPONENT}
@@ -3881,6 +3930,7 @@ ${SIDEBAR_COMPONENT}
   <section class="servers">
     <div class="server-head"><h2>Server</h2><span class="count" id="count">0</span></div>
     <div class="list" id="list"><div class="message">Loading...</div></div>
+    <div class="pagination" id="pagination" style="display:flex;justify-content:center;gap:10px;margin-top:15px;"></div>
   </section>
 </main>
 
@@ -3910,7 +3960,7 @@ ${SIDEBAR_COMPONENT}
   const HOST = "\${hostName}";
   const THEME_KEY = "j1-theme";
   const BUG_KEY = "j1-ws-bug";
-  let servers = [], wildcards = [], wildcardLoaded = false;
+  let servers = [], wildcards = [], wildcardLoaded = false, currentPage = 1, itemsPerPage = 20;
   let selectedMode = "ws", selectedWildcard = "";
   let selectedBug = localStorage.getItem(BUG_KEY) || "", toastTimer;
   const $ = id => document.getElementById(id);
@@ -3956,7 +4006,12 @@ ${SIDEBAR_COMPONENT}
   function render() {
     $("count").textContent = String(servers.length);
     if (!servers.length) { $("list").innerHTML = \`<div class="message">No server</div>\`; return; }
-    $("list").innerHTML = servers.map((server,index) => \`
+    const start = (currentPage - 1) * itemsPerPage;
+    const end = start + itemsPerPage;
+    const visibleServers = servers.slice(start, end);
+    $("list").innerHTML = visibleServers.map((server, i) => {
+      const index = start + i;
+      return \`
       <article class="server">
         <div class="identity"><div class="flag">\${esc(server.flag || "🌐")}</div><div><div class="country">\${esc(server.country || "Unknown")}</div><div class="endpoint">\${esc(server.ip)}:\${Number(server.port)}</div></div></div>
         <div class="check-wrap" id="check-\${index}">\${statusMarkup(server,index)}</div>
@@ -3966,7 +4021,29 @@ ${SIDEBAR_COMPONENT}
           <svg viewBox="0 0 24 24" fill="none"><path d="M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm7 3 1.5-1.4-2-3.4-2 .6a7 7 0 0 0-1.6-1l-.5-2h-4l-.5 2a7 7 0 0 0-1.7 1l-2-.6-2 3.4L4.7 12l-1.5 1.4 2 3.4 2-.6a7 7 0 0 0 1.7 1l.5 2h4l.5-2a7 7 0 0 0 1.7-1l2 .6 2-3.4L19 12Z" stroke="currentColor" stroke-width="1.6"/></svg>CONFIG
           <svg class="arrow" viewBox="0 0 24 24" fill="none"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="2"/></svg>
         </button>\${modeControls(index)}</div>
-      </article>\`).join("");
+      </article>\`;
+    }).join("");
+  }
+
+  function renderPagination() {
+    const totalPages = Math.ceil(servers.length / itemsPerPage);
+    if (totalPages <= 1) {
+      if ($("pagination")) $("pagination").innerHTML = "";
+      return;
+    }
+    let html = \`<div style="display:flex; justify-content:center; gap:8px; margin-top:20px; align-items:center;">\`;
+    html += \`<button data-page="\${currentPage - 1}" class="mode" style="padding:0 12px; height:30px;" \${currentPage === 1 ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''}>Prev</button>\`;
+    html += \`<span style="font-size:11px; color:var(--muted); font-weight:850; letter-spacing:0.05em;">\${currentPage} / \${totalPages}</span>\`;
+    html += \`<button data-page="\${currentPage + 1}" class="mode" style="padding:0 12px; height:30px;" \${currentPage === totalPages ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''}>Next</button>\`;
+    html += \`</div>\`;
+
+    let pagContainer = $("pagination");
+    if (!pagContainer) {
+      pagContainer = document.createElement("div");
+      pagContainer.id = "pagination";
+      $("list").parentNode.appendChild(pagContainer);
+    }
+    pagContainer.innerHTML = html;
   }
   function updateCheck(index) {
     const a = $("check-" + index), b = $("metric-" + index);
@@ -4016,13 +4093,18 @@ ${SIDEBAR_COMPONENT}
     updateCheck(index);
   }
   async function autoCheck() {
-    let cursor=0; await Promise.all(Array.from({length:Math.min(5,servers.length)}, async () => { while (cursor < servers.length) await checkServer(cursor++); }));
+    const start = (currentPage - 1) * itemsPerPage;
+    const end = Math.min(start + itemsPerPage, servers.length);
+    let cursor = start;
+    await Promise.all(Array.from({length:Math.min(5, end - start)}, async () => {
+      while (cursor < end) await checkServer(cursor++);
+    }));
   }
   async function loadServers() {
     try {
       const res = await fetch("/api/nodes?t=" + Date.now(), {cache:"no-store"}); const data = await res.json();
       if (!res.ok) throw new Error();
-      servers = (data.nodes || []).map(x => ({...x,status:"ready",delay:"",speed:"",metricsFromApi:false})); render(); autoCheck();
+      servers = (data.nodes || []).map(x => ({...x,status:"ready",delay:"",speed:"",metricsFromApi:false})); render(); renderPagination(); autoCheck();
     } catch (_) { servers=[]; $("count").textContent="0"; $("list").innerHTML=\`<div class="message">Failed to load server</div>\`; }
   }
   function renderWildcards() {
@@ -4047,6 +4129,14 @@ ${SIDEBAR_COMPONENT}
   document.addEventListener("click", async event => {
     const check=event.target.closest("[data-check]"), toggle=event.target.closest("[data-toggle]"), copy=event.target.closest("[data-copy]");
     const mode=event.target.closest("[data-mode]"), useWc=event.target.closest("[data-use-wc]"), copyWc=event.target.closest("[data-copy-wc]");
+    const pageBtn = event.target.closest("[data-page]");
+    if(pageBtn && !pageBtn.disabled){
+      currentPage = Number(pageBtn.dataset.page);
+      render();
+      renderPagination();
+      autoCheck();
+      return;
+    }
     if(check){ await checkServer(Number(check.dataset.check)); return; }
     if(toggle){ const card=toggle.closest(".server"); document.querySelectorAll(".server.open").forEach(x=>{if(x!==card)x.classList.remove("open")}); card.classList.toggle("open"); return; }
     if(mode){ selectMode(mode.dataset.mode); return; }
