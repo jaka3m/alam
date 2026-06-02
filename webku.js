@@ -4653,16 +4653,23 @@ function renderHTML() {
 
         function renderPagesLinkedDomains(domains) {
             const list = document.getElementById('pagesLinkedDomainsList');
+            const rootDomain = document.getElementById('pagesDomainSelect').value;
+
             if (!domains || domains.length === 0) {
                 list.innerHTML = '<div class="text-center py-4 text-slate-600 text-xs italic">No domains linked to this project.</div>';
                 return;
             }
 
             list.innerHTML = domains.map(function(d) {
+                let displayName = d.name;
+                if (rootDomain && d.name.endsWith('.' + rootDomain)) {
+                    displayName = d.name.slice(0, -(rootDomain.length + 1));
+                }
+
                 const statusColor = d.status === 'active' ? 'text-green-500' : 'text-orange-500';
                 return '<div class="flex justify-between items-center bg-black/40 p-2 rounded-lg border border-slate-700/50">' +
                     '<div class="flex flex-col">' +
-                        '<a href="https://' + d.name + '" target="_blank" class="text-xs text-blue-400 hover:underline">' + d.name + '</a>' +
+                        '<a href="https://' + d.name + '" target="_blank" class="text-xs text-blue-400 hover:underline">' + displayName + '</a>' +
                         '<span class="text-[9px] uppercase font-bold ' + statusColor + '">' + d.status + '</span>' +
                     '</div>' +
                     '<button onclick="deletePagesDomain(\\'' + d.name + '\\')" class="text-slate-500 hover:text-red-500 transition-all p-1" title="Delete Domain">' +
