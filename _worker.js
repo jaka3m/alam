@@ -3601,7 +3601,7 @@ function buildCountryFlag(page) {
     const searchQuery = url.searchParams.get('search') || '';
     const selectedWildcard = url.searchParams.get('wildcard') || '';
     const selectedConfigType = url.searchParams.get('configType') || 'tls'; // Ambil nilai 'configType' atau gunakan default 'tls'
-    const configsPerPage = 10;
+    const configsPerPage = 20;
     const configs = await fetchConfigs();
     const totalConfigs = configs.length;
     let filteredConfigs = configs;
@@ -3676,50 +3676,42 @@ function buildCountryFlag(page) {
             ssRibet = ssNTLSRibet;
         }
         cardsHTML += `
-        <div class="card-glass copyright-fire p-5 border border-white/10 hover:border-green-500/50 transition-all duration-300 proxy-row group" data-ip-port="${ipPort}">
-            <div class="flex justify-between items-start mb-4">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 font-bold border border-green-500/30">
-                        ${rowNumber}
-                    </div>
-                    <div>
-                        <h3 class="text-gray font-bold text-lg">${config.ip}</h3>
-                        <p class="text-gray text-xs font-mono">Port: ${config.port}</p>
-                    </div>
-                </div>
-                <div class="proxy-status status-delay-cell h-8 flex items-center">
-                    <div class="loading-container"><div class="spinner"></div></div>
+        <article class="server proxy-row" data-ip-port="${ipPort}">
+            <div class="identity">
+                <div class="flag">${getFlagEmoji(config.countryCode)}</div>
+                <div>
+                    <div class="country">${config.countryCode}</div>
+                    <div class="endpoint">${config.ip}:${config.port}</div>
                 </div>
             </div>
-            <div class="space-y-3 mb-6">
-                <div class="flex items-center justify-between text-sm">
-                    <span class="text-gray text-xs font-mono">Country</span>
-                    <div class="flex items-center gap-2 text-gray text-xs font-mono">
-                        <img width="18" src="https://hatscripts.github.io/circle-flags/flags/${config.countryCode.toLowerCase()}.svg" alt="${config.countryCode} flag" class="rounded-full shadow-sm"/>
-                        ${config.countryCode}
+            <div class="check-wrap proxy-status">
+                <button class="check checking"><i></i>CHECKING</button>
+            </div>
+            <div class="provider">
+                <small>PROVIDER</small>
+                <strong>${config.isp}</strong>
+            </div>
+            <div class="metric">
+                <span class="pipe">|</span>
+                <span class="speed">Speed: -</span>
+            </div>
+            <div>
+                <button class="config-main" onclick="this.closest('.server').classList.toggle('open')">
+                    <svg viewBox="0 0 24 24" fill="none"><path d="M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm7 3 1.5-1.4-2-3.4-2 .6a7 7 0 0 0-1.6-1l-.5-2h-4l-.5 2a7 7 0 0 0-1.7 1l-2-.6-2 3.4L4.7 12l-1.5 1.4 2 3.4 2-.6a7 7 0 0 0 1.7 1l.5 2h4l.5-2a7 7 0 0 0 1.7-1l2 .6 2-3.4L19 12Z" stroke="currentColor" stroke-width="1.6"/></svg>CONFIG
+                    <svg class="arrow" viewBox="0 0 24 24" fill="none"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="2"/></svg>
+                </button>
+                <div class="chooser">
+                    <div class="chooser-inner">
+                        <div class="choose-label">PILIH PROTOKOL</div>
+                        <div class="protocol-row">
+                            <button class="copy" onclick='showOptions("VLess", "${vlessRibet.replace(/"/g, "&quot;")}", "${vlessSimple.replace(/"/g, "&quot;")}", ${JSON.stringify(config).replace(/'/g, "&#39;")})'>VLESS</button>
+                            <button class="copy" onclick='showOptions("Trojan", "${trojanRibet.replace(/"/g, "&quot;")}", "${trojanSimple.replace(/"/g, "&quot;")}", ${JSON.stringify(config).replace(/'/g, "&#39;")})'>TROJAN</button>
+                            <button class="copy" onclick='showOptions("SS", "${ssRibet.replace(/"/g, "&quot;")}", "${ssSimple.replace(/"/g, "&quot;")}", ${JSON.stringify(config).replace(/'/g, "&#39;")})'>SS</button>
+                        </div>
                     </div>
                 </div>
-                <div class="flex items-center justify-between text-sm">
-                    <span class="text-gray text-xs font-mono">ISP</span>
-                    <span class="text-gray text-xs font-mono" title="${config.isp}">${config.isp}</span>
-                </div>
             </div>
-            <div class="grid grid-cols-3 gap-2">
-                <button class="bg-blue-600/80 hover:bg-blue-600 py-2 rounded-lg text-white text-[10px] font-bold transition-all active:scale-95"
-                        onclick='showOptions("VLess", "${vlessRibet.replace(/"/g, "&quot;")}", "${vlessSimple.replace(/"/g, "&quot;")}", ${JSON.stringify(config).replace(/'/g, "&#39;")})'>
-                    VLESS
-                </button>
-                <button class="bg-purple-600/80 hover:bg-purple-700 py-2 rounded-lg text-white text-[10px] font-bold transition-all active:scale-95"
-                        onclick='showOptions("Trojan", "${trojanRibet.replace(/"/g, "&quot;")}", "${trojanSimple.replace(/"/g, "&quot;")}", ${JSON.stringify(config).replace(/'/g, "&#39;")})'>
-                    TROJAN
-                </button>
-                <button class="bg-green-600/80 hover:bg-green-600 py-2 rounded-lg text-white text-[10px] font-bold transition-all active:scale-95"
-                        onclick='showOptions("SS", "${ssRibet.replace(/"/g, "&quot;")}", "${ssSimple.replace(/"/g, "&quot;")}", ${JSON.stringify(config).replace(/'/g, "&#39;")})'>
-                    SS
-                </button>
-            </div>
-        </div>
-        
+        </article>
         `;
     });
     cardsHTML += `</div>`;
@@ -3789,9 +3781,10 @@ function buildCountryFlag(page) {
     const nextPage = page < totalPages
       ? `<a href="?page=${page + 1}&wildcard=${encodeURIComponent(selectedWildcard)}&configType=${encodeURIComponent(selectedConfigType)}${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ''}" class="pagination-arrow">▷</a>`
       : '';
+      
   return new Response(`
 <!DOCTYPE html>
-<html>
+<html lang="id" data-theme="dark">
     <head>
         <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -3841,877 +3834,562 @@ function buildCountryFlag(page) {
         </script>
         
         <style>
-:root {
-    --primary: #22c55e;
-    --secondary: #10b981;
-    --neon-magenta: #ff00ff;
-    --dark-bg: #030617;
-    --light: #e0f2fe;
-    --gray-light: #94a3b8;
-    --glass: rgba(25, 30, 45, 0.7);
-    --glass-border: rgba(34, 197, 94, 0.3);
-    --neon-cyan: #00ff00;
-    --light-bg: #f0f4f8;
-    --dark-text: #1e293b;
-    --container-light-bg: rgba(255, 255, 255, 0.9);
-    --glass-border-light: rgba(0, 0, 0, 0.1);
-    --glass-border-dark: rgba(255, 255, 255, 0.1);
-    --primary-color: #4a90e2;
-    --secondary-color: #7b68ee;
-    --card-bg-light: rgba(255, 255, 255, 0.95);
-    --card-bg-dark: rgba(0, 0, 0, 0.5);
-    --footer-bg-light: rgba(240, 244, 248, 0.9);
-    --footer-bg-dark: rgba(0, 0, 0, 0.8);
-}
-.card-glass {
-    background: rgba(255, 255, 255, 0.03);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 1.25rem;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.card-glass:hover {
-    background: rgba(255, 255, 255, 0.06);
-    border-color: rgba(34, 197, 94, 0.4);
-    transform: translateY(-4px);
-    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
-}
-.action-btn-blue {
-    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-    border-radius: 8px;
-    color: white;
-    transition: all 0.2s;
-}
-.action-btn-blue:hover { opacity: 0.9; transform: scale(1.02); }
-.action-btn-purple {
-    background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
-    border-radius: 8px;
-    color: white;
-    transition: all 0.2s;
-}
-.action-btn-purple:hover { opacity: 0.9; transform: scale(1.02); }
-.action-btn-green {
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-    border-radius: 8px;
-    color: white;
-    transition: all 0.2s;
-}
-.action-btn-green:hover { opacity: 0.9; transform: scale(1.02); }
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-@keyframes slideUp {
-    from { 
-        opacity: 0;
-        transform: translateY(30px);
+    :root{
+      --bg:#061518; --panel:rgba(9,27,31,.88); --card:#0c2429; --card2:#0a2024;
+      --line:rgba(126,222,205,.14); --line2:rgba(65,223,185,.32);
+      --text:#effdf9; --muted:#82a9a7; --sub:#628988; --mint:#20e3b2;
+      --mint2:#00bc8f; --violet:#a482ff; --green:#22da94; --red:#fb7185;
+      --shadow:0 22px 65px rgba(0,0,0,.32);
     }
-    to { 
-        opacity: 1;
-        transform: translateY(0);
+    html[data-theme="light"]{
+      --bg:#edf9f7; --panel:rgba(255,255,255,.90); --card:#fff; --card2:#f3fffb;
+      --line:rgba(18,85,80,.12); --line2:rgba(0,165,124,.28);
+      --text:#092d30; --muted:#5d817e; --sub:#668a85; --mint:#00a87f;
+      --mint2:#008c6c; --violet:#7250d7; --shadow:0 20px 50px rgba(21,56,55,.10);
     }
-}
-@keyframes fireLine {
-    0% { 
-        left: -100%;
-        opacity: 0;
+    *{box-sizing:border-box}
+    html,body{margin:0;min-height:100%}
+    body{
+      font-family:Inter,"Segoe UI",Arial,sans-serif;color:var(--text);
+      background:
+        radial-gradient(circle at 10% 0%,rgba(32,227,178,.14),transparent 34%),
+        radial-gradient(circle at 100% 10%,rgba(164,130,255,.14),transparent 29%),
+        var(--bg);
     }
-    50% { 
-        opacity: 1;
+    body::before{
+      content:"";position:fixed;inset:0;pointer-events:none;opacity:.20;
+      background-image:linear-gradient(rgba(100,215,195,.05) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(100,215,195,.045) 1px,transparent 1px);
+      background-size:40px 40px;mask-image:linear-gradient(180deg,#000,transparent 70%);
     }
-    100% { 
-        left: 100%;
-        opacity: 0;
+    button,input{font:inherit;color:inherit}
+    button{cursor:pointer;-webkit-tap-highlight-color:transparent}
+    .app{position:relative;z-index:1;width:min(940px,100%);margin:auto;padding:12px 10px 34px}
+    .hero,.servers{
+      border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);backdrop-filter:blur(16px)
     }
-}
-@keyframes pulse {
-    0%, 100% { 
-        box-shadow: 0 0 15px rgba(52, 152, 219, 0.3);
+    .hero{border-radius:27px;padding:14px;margin-bottom:12px;overflow:hidden;position:relative}
+    .hero::after{
+      content:"";position:absolute;width:230px;height:230px;right:-98px;top:-112px;
+      border-radius:50%;background:radial-gradient(circle,rgba(164,130,255,.35),transparent 65%)
     }
-    50% { 
-        box-shadow: 0 0 25px rgba(52, 152, 219, 0.6);
+    .top{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:8px}
+    .brand{display:flex;align-items:center;gap:10px;min-width:0}
+    .logo{
+      width:50px;height:50px;flex:0 0 50px;border-radius:16px;display:grid;place-items:center;
+      background:linear-gradient(145deg,var(--mint),#058f8b 53%,var(--violet));
+      box-shadow:0 11px 25px rgba(32,227,178,.18);border:1px solid rgba(255,255,255,.17)
     }
-}
-@keyframes fireCollision {
-    0% { transform: translateX(-100%); }
-    50% { transform: translateX(0); opacity: 1; }
-    51% { opacity: 0.5; }
-    52% { opacity: 1; }
-    100% { transform: translateX(100%); }
-}
-@keyframes meteorShower {
-    0% { transform: translateY(-100%) rotate(0deg); }
-    100% { transform: translateY(100%) rotate(360deg); }
-}
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
-}
-body {
-    background-color: var(--light-bg);
-    color: var(--dark-text);
-    min-height: 100vh;
-    line-height: 1.6;
-    overflow-x: hidden;
-    transition: background-color 0.3s, color 0.3s;
-}
-.dark body { 
-    background-color: var(--dark-bg);
-    color: var(--light);
-    background-size: cover;
-}
-.popup-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(rgba(3, 6, 23, 0.98), rgba(6, 12, 30, 0.98)),
-                url('https://img.wattpad.com/63b4fef6d4a8b5eef3a12394990aea164cfe4be1/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f776174747061642d6d656469612d736572766963652f53746f7279496d616765L434916e4f5962596f476f5241773d3d2d3132302e313563323538386461323838623263313733313931313130373332322e6a7067?s=fit&w=720&h=720') no-repeat center center fixed;
-    background-size: cover;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 9999;
-    backdrop-filter: blur(10px);
-    transition: opacity 0.5s, transform 0.5s;
-}
-.popup-container {
-    background: var(--glass);
-    padding: 40px;
-    border-radius: 20px;
-    text-align: center;
-    border: 2px solid var(--neon-cyan);
-    max-width: 500px;
-    width: 90%;
-    position: relative;
-    overflow: hidden;
-}
-.popup-title {
-    font-size: 2.2rem;
-    font-weight: 700;
-    background: linear-gradient(135deg, var(--neon-magenta), var(--neon-cyan));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    margin-bottom: 15px;
-}
-.popup-progress {
-    width: 100%;
-    height: 20px;
-    background: var(--glass);
-    border-radius: 10px;
-    margin: 20px 0;
-    overflow: hidden;
-    border: 1px solid var(--glass-border);
-}
-.popup-progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, var(--neon-magenta), var(--neon-cyan));
-    border-radius: 10px;
-    transition: width 0.3s ease;
-}
-.popup-controls {
-    display: flex;
-    justify-content: center;
-    gap: 15px;
-    margin-top: 25px;
-}
-.wildcard-dropdown {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 15px;
-    margin-top: 15px;
-    margin-bottom: 25px;
-    width: 50%;
-    max-width: 250px;
-    margin-left: auto;
-    margin-right: auto;
-}
-select {
-    width: 100%;
-    max-width: 200px;
-    padding: 0.4rem 0.6rem;
-    font-size: 0.8rem;
-    color: var(--dark-text);
-    background: rgba(34, 197, 94, 0.05);
-    border: 2px solid rgba(34, 197, 94, 0.3);
-    border-radius: 10px;
-    outline: none;
-    font-family: 'Rajdhani', sans-serif;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    appearance: none;
-    background-image: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%231e293b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"%3E%3Cpath d="M6 9l6 6 6-6"%3E%3C/path%3E%3C/svg%3E');
-    background-position: right 10px center;
-    background-repeat: no-repeat;
-    background-size: 1rem;
-    transition: all 0.3s ease;
-}
-.dark select {
-    color: var(--light);
-    background-image: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%23e0f2fe" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"%3E%3Cpath d="M6 9l6 6 6-6"%3E%3C/path%3E%3C/svg%3E');
-}
-select:hover {
-    border-color: var(--primary);
-}
-select:focus {
-    border-color: var(--primary);
-    background: rgba(34, 197, 94, 0.1);
-}
-.wildcard-dropdown select option {
-    background-color: var(--light-bg);
-    color: var(--dark-text);
-}
-.dark .wildcard-dropdown select option {
-    background-color: var(--dark-bg);
-    color: var(--light);
-}
-.quantum-pagination {
-    display: flex;
-    justify-content: center;
-    gap: 0.5rem;
-    margin-top: 2rem;
-    flex-wrap: wrap;
-}
-.quantum-pagination a {
-    padding: 0.5rem 0.7rem;
-    background: #10b981;
-    color: white;
-    text-decoration: none;
-    border-radius: 12px;
-    border: 1px solid #059669;
-    transition: all 0.3s ease;
-    font-family: 'Rajdhani', sans-serif;
-    font-weight: 800;
-    min-width: 30px;
-    text-align: center;
-    font-size: 0.7rem;
-}
-.quantum-pagination a:hover {
-    background: #059669;
-    color: white;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    font-weight: 900;
-}
-.quantum-pagination a.active {
-    background: #f59e0b;
-    color: white !important;
-    border-color: #d97706;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
-    font-weight: 900;
-}
-.pagination-number.active {
-    background: #f59e0b;
-    color: white !important;
-    border-color: #d97706;
-    font-weight: 900;
-}
-.neon-active {
-    color: #00FF00;
-    text-shadow: 
-        0 0 5px #00FF00,
-        0 0 10px #00FF00,
-        0 0 15px #00FF00,
-        0 0 20px #00FF00;
-    animation: discoLights 0.8s infinite;
-}
-.neon-dead {
-    color: #FF3333;
-    text-shadow: 
-        0 0 5px #FF3333,
-        0 0 10px #FF3333,
-        0 0 15px #FF3333;
-    animation: discoLights 0.6s infinite;
-}
-.status-container {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px;
-    background: var(--card-bg-light);
-    border-radius: 8px;
-    font-family: 'Arial', sans-serif;
-    flex-wrap: nowrap;
-    white-space: nowrap;
-    color: var(--dark-text);
-    border: 1px solid #e2e8f0;
-    backdrop-filter: blur(5px);
-    transition: background-color 0.3s, color 0.3s, border-color 0.3s;
-    animation: backgroundDisco 3s infinite;
-}
-.status-container * {
-    color: inherit;
-}
-@keyframes discoLights {
-    0% {
-        color: #00FF00;
-        text-shadow: 
-            0 0 5px #00FF00,
-            0 0 10px #00FF00,
-            0 0 15px #00FF00;
+    .logo svg{width:31px;height:31px}
+    .micro{font-size:8px;letter-spacing:.3em;color:var(--mint);font-weight:850;margin-bottom:6px}
+    .brand-title{font-size:18px;font-weight:790;letter-spacing:-.045em;line-height:1;white-space:nowrap}
+    .top-buttons{display:flex;gap:5px;align-items:center}
+    .head-btn,.theme{
+      height:36px;border-radius:11px;border:1px solid var(--line);
+      background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;
     }
-    25% {
-        color: #FF00FF;
-        text-shadow: 
-            0 0 5px #FF00FF,
-            0 0 10px #FF00FF,
-            0 0 15px #FF00FF;
+    .head-btn{
+      padding:0 8px;gap:5px;font-size:8px;font-weight:850;letter-spacing:.05em;
+      color:#d7caff;border-color:rgba(164,130,255,.25);
+      background:linear-gradient(110deg,rgba(164,130,255,.11),rgba(32,227,178,.05))
     }
-    50% {
-        color: #00FFFF;
-        text-shadow: 
-            0 0 5px #00FFFF,
-            0 0 10px #00FFFF,
-            0 0 15px #00FFFF;
+    .head-btn.donate{
+      color:#ffd3df;border-color:rgba(244,114,182,.25);
+      background:linear-gradient(110deg,rgba(244,114,182,.13),rgba(164,130,255,.06));
     }
-    75% {
-        color: #FFFF00;
-        text-shadow: 
-            0 0 5px #FFFF00,
-            0 0 10px #FFFF00,
-            0 0 15px #FFFF00;
+    html[data-theme="light"] .head-btn{color:#6541bd}
+    html[data-theme="light"] .head-btn.donate{color:#be3665}
+    .head-btn svg{width:14px;height:14px}
+    .theme{width:36px;color:var(--mint)}
+    .theme svg{width:17px;height:17px}
+    .sun{display:none}
+    html[data-theme="light"] .sun{display:block}
+    html[data-theme="light"] .moon{display:none}
+    .headline{position:relative;z-index:1;margin:18px 2px 14px}
+    .headline h1{font-size:31px;line-height:1.04;letter-spacing:-.065em;margin:0 0 7px;font-weight:820}
+    .headline h1 span{
+      color:transparent;background:linear-gradient(100deg,var(--mint),#84ead2,var(--violet));
+      background-clip:text;-webkit-background-clip:text
     }
-    100% {
-        color: #00FF00;
-        text-shadow: 
-            0 0 5px #00FF00,
-            0 0 10px #00FF00,
-            0 0 15px #00FF00;
+    .headline p{margin:0;font-size:11px;color:var(--muted);line-height:1.5}
+    .info{position:relative;z-index:1;display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:8px}
+    .info-box{border:1px solid var(--line);background:rgba(0,0,0,.10);border-radius:13px;padding:9px}
+    html[data-theme="light"] .info-box{background:rgba(255,255,255,.38)}
+    .label{display:block;font-size:8px;letter-spacing:.19em;font-weight:850;color:var(--sub);margin-bottom:6px}
+    .tags{display:flex;gap:5px;flex-wrap:wrap}
+    .tag{
+      height:21px;padding:0 7px;border:1px solid rgba(32,227,178,.19);border-radius:7px;
+      display:inline-flex;align-items:center;color:var(--mint);font-size:8.5px;font-weight:850;
+      letter-spacing:.07em;background:rgba(32,227,178,.07)
     }
-}
-@keyframes backgroundDisco {
-    0% {
-        background: rgba(255, 0, 255, 0.1);
-        border-color: #FF00FF;
+    .transport strong{color:var(--violet);font-size:10px;letter-spacing:.06em;white-space:nowrap}
+    .path{
+      position:relative;z-index:1;display:flex;align-items:center;gap:9px;border:1px solid rgba(32,227,178,.17);
+      background:linear-gradient(100deg,rgba(32,227,178,.07),rgba(164,130,255,.06));
+      border-radius:13px;padding:9px 10px
     }
-    25% {
-        background: rgba(0, 255, 255, 0.1);
-        border-color: #00FFFF;
+    .path svg{width:17px;height:17px;color:var(--mint);flex:0 0 auto}
+    .path b{display:block;font-size:8px;letter-spacing:.2em;color:var(--mint);margin-bottom:3px}
+    .path p{margin:0;color:var(--muted);font-size:10px}
+    .path code{font-family:ui-monospace,Consolas,monospace;color:var(--text);background:rgba(255,255,255,.06);padding:2px 5px;border-radius:5px}
+    .servers{border-radius:24px;padding:12px}
+    .server-head{display:flex;align-items:center;gap:9px;margin:2px 2px 12px}
+    .server-head h2{font-size:22px;margin:0;letter-spacing:-.05em}
+    .count{
+      height:28px;min-width:33px;padding:0 9px;border-radius:9px;border:1px solid rgba(32,227,178,.2);
+      background:rgba(32,227,178,.07);color:var(--mint);display:grid;place-items:center;font-size:11px;font-weight:800
     }
-    50% {
-        background: rgba(255, 255, 0, 0.1);
-        border-color: #FFFF00;
+    .list{display:grid;gap:10px}
+    .server{
+      position:relative;border:1px solid var(--line);border-radius:18px;padding:12px;
+      background:linear-gradient(145deg,var(--card),var(--card2));display:grid;gap:10px
     }
-    75% {
-        background: rgba(0, 255, 0, 0.1);
-        border-color: #00FF00;
+    .server.open{border-color:var(--line2)}
+    .identity{display:flex;align-items:center;gap:10px;min-width:0;padding-right:110px}
+    .flag{
+      width:43px;height:43px;flex:0 0 43px;border-radius:13px;border:1px solid var(--line);
+      display:grid;place-items:center;font-size:22px;background:rgba(255,255,255,.03)
     }
-    100% {
-        background: rgba(255, 0, 255, 0.1);
-        border-color: #FF00FF;
+    .country{font-size:15px;font-weight:740;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .endpoint{font:11px ui-monospace,Consolas,monospace;color:var(--muted);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .check-wrap{position:absolute;right:12px;top:13px;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+    .check{
+      min-width:78px;height:29px;border-radius:999px;border:1px solid transparent;display:flex;gap:6px;
+      align-items:center;justify-content:center;font-size:9px;font-weight:850;letter-spacing:.06em;
+      background:rgba(120,160,160,.10);color:#9bb7b5
     }
-}
-.neon-dead {
-    animation: deadDisco 0.5s infinite;
-}
-@keyframes deadDisco {
-    0% {
-        color: #FF3333;
-        text-shadow: 
-            0 0 5px #FF3333,
-            0 0 10px #FF3333,
-            0 0 15px #FF3333;
+    .check i{width:7px;height:7px;border-radius:50%;background:currentColor}
+    .check.checking{color:var(--mint);border-color:rgba(32,227,178,.2);background:rgba(32,227,178,.08)}
+    .check.checking i{background:transparent;border:2px solid currentColor;border-top-color:transparent;animation:spin .7s linear infinite}
+    .check.active{color:var(--green);background:rgba(34,218,148,.10);border-color:rgba(34,218,148,.22)}
+    .check.inactive{color:var(--red);background:rgba(251,113,133,.10);border-color:rgba(251,113,133,.22)}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .provider{border:1px solid rgba(255,255,255,.045);border-radius:11px;padding:8px 9px;background:rgba(255,255,255,.024)}
+    .provider small{display:block;color:var(--sub);font-size:8px;letter-spacing:.2em;font-weight:850;margin-bottom:4px}
+    .provider strong{font-size:12px;font-weight:620}
+    .metric{
+      display:flex;align-items:center;justify-content:center;gap:6px;min-height:37px;border-radius:11px;
+      color:var(--text);background:rgba(1,8,12,.70);font:9px ui-monospace,Consolas,monospace;
+      border:1px solid rgba(255,255,255,.06)
     }
-    50% {
-        color: #FF6B6B;
-        text-shadow: 
-            0 0 5px #FF6B6B,
-            0 0 10px #FF6B6B,
-            0 0 15px #FF6B6B;
+    html[data-theme="light"] .metric{color:#f7fffc;background:#123033}
+    .metric .pipe{opacity:.4}
+    .metric .speed{color:var(--mint)}
+    .config-main{
+      height:41px;width:100%;border:0;border-radius:12px;background:linear-gradient(105deg,var(--mint),#69e8cf);
+      color:#062823;font-size:11px;font-weight:850;letter-spacing:.05em;display:flex;align-items:center;justify-content:center;gap:7px
     }
-    100% {
-        color: #FF3333;
-        text-shadow: 
-            0 0 5px #FF3333,
-            0 0 10px #FF3333,
-            0 0 15px #FF3333;
+    .config-main svg{width:14px;height:14px}
+    .arrow{transition:transform .16s}
+    .server.open .arrow{transform:rotate(180deg)}
+    .chooser{max-height:0;opacity:0;pointer-events:none;overflow:hidden;transition:max-height .2s,opacity .15s,margin-top .18s;margin-top:0}
+    .server.open .chooser{max-height:290px;opacity:1;pointer-events:auto;margin-top:7px}
+    .chooser-inner{border:1px solid var(--line);border-radius:12px;padding:8px;background:rgba(255,255,255,.02)}
+    .choose-label{font-size:8px;color:var(--sub);font-weight:850;letter-spacing:.19em;margin:0 0 6px}
+    .mode-row,.protocol-row{display:grid;gap:5px}
+    .mode-row{grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:8px}
+    .protocol-row{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .mode,.copy{
+      min-width:0;height:34px;border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.025);
+      font-size:9px;font-weight:850;letter-spacing:.07em;color:var(--muted)
     }
-}
-.status-badge {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font-weight: bold;
-    font-size: 14px;
-    padding: 5px 10px;
-    border-radius: 4px;
-}
-.delay-badge {
-    color: yellow;
-    font-weight: bold;
-    font-size: 12px;
-}
-.loading-container {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-.spinner {
-    width: 30px;
-    height: 30px;
-    border: 4px solid rgba(52, 152, 219, 0.2);
-    border-top: 4px solid #3498db;
-    border-radius: 50%;
-    animation: spin 1.2s cubic-bezier(0.68, -0.55, 0.27, 1.55) infinite, 
-               pulse 2s ease-in-out infinite;
-    box-shadow: 0 0 15px rgba(52, 152, 219, 0.3);
-    position: relative;
-}
-.spinner::before {
-    content: '';
-    position: absolute;
-    top: -6px;
-    left: -6px;
-    right: -6px;
-    bottom: -6px;
-    border: 2px solid transparent;
-    border-top: 2px solid #e74c3c;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-    opacity: 0.7;
-}
-.spinner::after {
-    content: '';
-    position: absolute;
-    top: -10px;
-    left: -10px;
-    right: -10px;
-    bottom: -10px;
-    border: 1px solid transparent;
-    border-top: 1px solid #2ecc71;
-    border-radius: 50%;
-    animation: spin 1.5s ease-in-out infinite;
-    opacity: 0.5;
-}
-.loading-icon {
-    color: #4CAF50;
-    font-size: 20px;
-}
-.error-icon {
-    color: red;
-    font-size: 18px;
-}
-.quantum-title {
-    font-family: 'Rajdhani', sans-serif;
-    padding-top: 8px;
-    margin-top: 8px;
-    text-align: center;
-    font-size: 1.5rem;
-    font-weight: 600;
-    background: linear-gradient(145deg,
-        #00ff88 0%,
-        #00cc66 25%,
-        #10b981 50%,
-        #047857 75%,
-        #064e3b 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    background-size: 200% 200%;
-    position: relative;
-    margin-bottom: 0.8rem;
-}
-.quantum-toast {
-    position: fixed;
-    bottom: 16px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #22c55e;
-    color: white;
-    padding: 8px 16px;
-    border-radius: 8px;
-    transition: all 0.3s;
-    z-index: 50;
-    font-size: 0.8rem;
-}
-.card {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.02) 0%, rgba(99, 102, 241, 0.03) 100%);
-    border-radius: 20px;
-    padding: 30px;
-    backdrop-filter: blur(20px);
-    border: 1px solid var(--glass-border-light);
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    position: relative;
-    overflow: hidden;
-}
-.dark .card {
-    border-color: var(--glass-border-dark);
-}
-.card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, #ff0000, #ff5500, #ff0000, transparent);
-    animation: fireLine 3s ease-in-out infinite;
-    filter: blur(1px);
-    z-index: 2;
-}
-.card::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    right: -100%;
-    width: 100%;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, #00ffff, #00aaff, #00ffff, transparent);
-    animation: fireLine 4s ease-in-out infinite reverse;
-    filter: blur(1px);
-    z-index: 2;
-}
-.card:hover {
-    transform: translateY(-8px);
-    border-color: rgba(99, 102, 241, 0.3);
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-}
-.card-header {
-    display: flex;
-    align-items: center;
-    margin-bottom: 25px;
-    padding-bottom: 20px;
-    border-bottom: 1px solid var(--glass-border-light);
-}
-.dark .card-header {
-    border-bottom: 1px solid var(--glass-border-dark);
-}
-.card-icon {
-    width: 50px;
-    height: 50px;
-    background: linear-gradient(135deg, var(--primary), var(--secondary));
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-right: 15px;
-    font-size: 20px;
-    color: white;
-}
-.slide-up {
-    animation: slideUp 0.6s ease-out;
-}
-.content {
-    flex: 1;
-    padding: 40px;
-    text-align: center;
-}
-.footer {
-    text-align: center;
-    margin-top: 60px;
-    padding: 40px 30px;
-    background: var(--footer-bg-light);
-    background-size: cover;
-    border-radius: 20px;
-    backdrop-filter: blur(20px);
-    border: 1px solid var(--glass-border-light);
-    position: relative;
-    overflow: hidden;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-    transition: background-color 0.3s, border-color 0.3s;
-}
-.dark .footer {
-    background: var(--footer-bg-dark);
-    border-color: var(--glass-border-dark);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-}
-.footer-content {
-    position: relative;
-    z-index: 2;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 25px;
-}
-.footer-logo {
-    font-size: 1.8rem;
-    font-weight: 700;
-    background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    margin-bottom: 10px;
-}
-.footer-links {
-    display: flex;
-    gap: 25px;
-    margin-bottom: 20px;
-}
-.footer-link {
-    color: var(--gray-light);
-    text-decoration: none;
-    font-weight: 500;
-    transition: all 0.3s ease;
-    position: relative;
-    padding: 5px 0;
-}
-.footer-link:hover {
-    color: var(--dark-text);
-    transform: translateY(-2px);
-}
-.dark .footer-link:hover {
-    color: white;
-}
-.footer-link::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 0;
-    height: 2px;
-    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
-    transition: width 0.3s ease;
-}
-.footer-link:hover::after {
-    width: 100%;
-}
-.social-icons {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 15px;
-    margin-bottom: 25px;
-    width: 100%;
-}
-.social-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: rgba(0, 0, 0, 0.1);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--dark-text);
-    text-decoration: none;
-    transition: all 0.3s ease;
-    border: 1px solid rgba(0, 0, 0, 0.1);
-}
-.dark .social-icon {
-    background: rgba(255, 255, 255, 0.1);
-    color: white;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-}
-.social-icon.github { background-color: #333; }
-.social-icon.whatsapp { background-color: #25D366; }
-.social-icon.telegram { background-color: #0088cc; }
-.social-icon:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 5px 15px rgba(74, 144, 226, 0.4);
-    color: white;
-}
-.social-icon.github:hover { background-color: #444; }
-.social-icon.whatsapp:hover { background-color: #36e477; }
-.social-icon.telegram:hover { background-color: #1199dd; }
-.copyright-fire {
-    position: relative;
-    margin-top: 20px;
-    padding: 15px 20px;
-    overflow: hidden;
-    border-radius: 10px;
-    background: rgba(0, 0, 0, 0.1);
-    border: 1px solid rgba(0, 0, 0, 0.05);
-    transition: background-color 0.3s, border-color 0.3s;
-}
-.dark .copyright-fire {
-    background: rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-}
-.copyright-fire::before, .copyright-fire::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    width: 100%;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, var(--dark-text), transparent);
-    animation: fireCollision 4s linear infinite;
-}
-.dark .copyright-fire::before, 
-.dark .copyright-fire::after {
-    background: linear-gradient(90deg, transparent, white, transparent);
-}
-.copyright-fire::before {
-    top: 0;
-    animation-direction: normal;
-}
-.copyright-fire::after {
-    bottom: 0;
-    animation-direction: reverse;
-}
-.footer::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: 
-        radial-gradient(circle at 30% 30%, rgba(0, 0, 0, 0.1) 0%, transparent 50%),
-        radial-gradient(circle at 70% 70%, rgba(0, 0, 0, 0.05) 0%, transparent 50%);
-    animation: meteorShower 20s linear infinite;
-    pointer-events: none;
-}
-.dark .footer::before {
-    background: 
-        radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
-        radial-gradient(circle at 70% 70%, rgba(255, 255, 255, 0.05) 0%, transparent 50%);
-}
-.footer p {
-    color: var(--gray-light);
-    margin-bottom: 15px;
-}
-.fade-in {
-    animation: fadeIn 1.5s ease-in-out;
-}
-.quantum-container {
-    max-width: 350px;
-    margin: 20px auto;
-    padding: 20px;
-    background: linear-gradient(135deg, 
-        rgba(255, 255, 255, 0.25) 0%, 
-        rgba(255, 255, 255, 0.15) 50%, 
-        rgba(255, 255, 255, 0.1) 100%);
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    border-radius: 15px;
-    min-height: calc(100vh - 40px);
-    transition: all 0.3s ease;
-    box-shadow: 
-        0 8px 32px rgba(255, 255, 255, 0.1),
-        inset 0 1px 0 rgba(255, 255, 255, 0.2),
-        inset 0 -1px 0 rgba(255, 255, 255, 0.1);
-    position: relative;
-    overflow: hidden;
-}
-.quantum-container::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(135deg, 
-        rgba(255, 255, 255, 0.1) 0%, 
-        transparent 50%, 
-        rgba(255, 255, 255, 0.05) 100%);
-    pointer-events: none;
-    border-radius: 15px;
-}
-.dark .quantum-container {
-    background: linear-gradient(135deg, 
-        rgba(255, 255, 255, 0.15) 0%, 
-        rgba(255, 255, 255, 0.08) 50%, 
-        rgba(255, 255, 255, 0.05) 100%);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    box-shadow: 
-        0 8px 32px rgba(255, 255, 255, 0.05),
-        inset 0 1px 0 rgba(255, 255, 255, 0.15),
-        inset 0 -1px 0 rgba(255, 255, 255, 0.05);
-}
-.w-full.text-sm.text-left.text-gray-400 tbody td {
-    color: white;
-    font-weight: bold;
-}
-.delay-badge {
-    color: yellow;
-    background-color: transparent;
-    font-weight: bold;
-}
-.small-title {
-    font-size: 14px !important;
-}
-.small-text {
-    font-size: 12px !important;
-}
-.status-delay-cell {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-}
-@media (min-width: 640px) {
-    .quantum-container {
-        max-width: 900px;
+    .mode.active{border-color:rgba(32,227,178,.35);color:var(--mint);background:rgba(32,227,178,.09)}
+    .copy{color:#d8ccff;border-color:rgba(164,130,255,.24);background:rgba(164,130,255,.07)}
+    html[data-theme="light"] .copy{color:#6543c5}
+    .mode-detail{margin:0 0 8px}
+    .wc-selected{
+      min-height:36px;display:flex;align-items:center;padding:0 9px;border-radius:9px;border:1px dashed var(--line);
+      font:9px ui-monospace,Consolas,monospace;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis
     }
+    .ws-field{display:grid;gap:5px}
+    .ws-field label{font-size:8px;color:var(--sub);font-weight:850;letter-spacing:.19em}
+    .ws-input{
+      width:100%;height:37px;border-radius:9px;border:1px solid var(--line2);outline:none;padding:0 10px;
+      background:rgba(0,0,0,.14);color:var(--text);font:10px ui-monospace,Consolas,monospace
+    }
+    html[data-theme="light"] .ws-input{background:rgba(14,72,65,.03)}
+    .mode-hint{margin:6px 0 0;color:var(--muted);font-size:9px;line-height:1.4}
+    .message{height:90px;border:1px dashed var(--line);border-radius:14px;display:grid;place-items:center;color:var(--muted);font-size:12px}
+    .modal-backdrop{
+      position:fixed;z-index:100;inset:0;background:rgba(0,7,9,.68);backdrop-filter:blur(8px);
+      display:none;align-items:flex-end;justify-content:center;padding:12px
+    }
+    .modal-backdrop.show{display:flex}
+    .modal{
+      width:min(560px,100%);max-height:84vh;border-radius:22px;border:1px solid var(--line2);
+      background:var(--card);box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden
+    }
+    .modal-head{padding:14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}
+    .modal-head h3{margin:0;font-size:19px;letter-spacing:-.04em}
+    .close{width:36px;height:36px;border:1px solid var(--line);background:transparent;border-radius:11px;color:var(--muted)}
+    .modal-note{padding:10px 14px;border-bottom:1px solid var(--line);font-size:10px;color:var(--muted);line-height:1.5}
+    .wildcards{display:grid;gap:7px;padding:10px;overflow:auto}
+    .wildcard-item{display:flex;align-items:center;gap:6px;padding:8px;border:1px solid var(--line);border-radius:11px}
+    .wildcard-item code{flex:1;min-width:0;font:10px ui-monospace,Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .use,.wc-copy{height:30px;border-radius:8px;padding:0 8px;font-size:8px;font-weight:850;letter-spacing:.07em}
+    .use{border:1px solid rgba(32,227,178,.28);color:var(--mint);background:rgba(32,227,178,.08)}
+    .wc-copy{border:1px solid rgba(164,130,255,.25);color:#d3c5ff;background:rgba(164,130,255,.07)}
+    html[data-theme="light"] .wc-copy{color:#6343c4}
+    #donateModal{align-items:center;padding:10px}
+    .donate-modal{
+      position:relative;width:auto;max-width:calc(100vw - 20px);max-height:calc(100vh - 20px);
+      border:0;background:transparent;box-shadow:none;overflow:visible;display:block
+    }
+    .qris-full-link{
+      display:block;line-height:0;border-radius:20px;overflow:hidden;background:#fff;
+      box-shadow:0 26px 74px rgba(0,0,0,.52);
+      border:1px solid rgba(255,255,255,.20)
+    }
+    .qris-full{
+      display:block;width:auto;height:auto;
+      max-width:calc(100vw - 20px);max-height:calc(100vh - 20px);
+      object-fit:contain
+    }
+    .donate-close-float{
+      position:absolute;z-index:2;right:9px;top:9px;width:38px;height:38px;border-radius:50%;
+      border:1px solid rgba(255,255,255,.30);background:rgba(3,12,16,.62);
+      color:#fff;display:grid;place-items:center;font-size:18px;backdrop-filter:blur(8px)
+    }
+    .qris-fallback{
+      display:none;min-width:min(350px,calc(100vw - 20px));min-height:220px;
+      align-items:center;justify-content:center;color:#18202a;font-size:12px;padding:30px 15px
+    }
+    @media(max-width:430px){
+      #donateModal{padding:6px}
+      .qris-full{max-width:calc(100vw - 12px);max-height:calc(100vh - 12px)}
+      .donate-modal{max-width:calc(100vw - 12px);max-height:calc(100vh - 12px)}
+      .donate-close-float{right:8px;top:8px}
+    }
+    .toast{
+      position:fixed;left:50%;bottom:20px;z-index:120;transform:translate(-50%,14px);opacity:0;pointer-events:none;
+      transition:.16s;padding:10px 14px;border-radius:999px;background:#123033;color:#fff;
+      border:1px solid var(--line2);font-size:11px;white-space:nowrap;max-width:calc(100vw - 24px);
+      overflow:hidden;text-overflow:ellipsis
+    }
+    .toast.show{opacity:1;transform:translate(-50%,0)}
+    @media(max-width:430px){
+      .top{align-items:flex-start}
+      .top-buttons{flex-wrap:wrap;justify-content:flex-end;max-width:154px}
+      .head-btn{padding:0 7px;font-size:7.5px}
+      .headline h1{font-size:27px}
+      .info{grid-template-columns:1fr}
+      .identity{padding-right:102px}
+      .metric{font-size:8px}
+    }
+    @media(min-width:720px){
+      .app{padding:18px 16px 40px}
+      .hero{padding:18px;border-radius:30px}
+      .brand-title{font-size:23px}
+      .headline h1{font-size:43px}
+      .headline p{font-size:13px}
+      .info-box{padding:11px}
+      .servers{padding:15px}
+      .list{grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+      .modal-backdrop{align-items:center}
+      .metric{font-size:10px}
+    }
+    
+    .quantum-pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 6px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+    .quantum-pagination a {
+      height: 30px;
+      min-width: 30px;
+      padding: 0 10px;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--mint);
+      font-size: 10px;
+      font-weight: 850;
+      letter-spacing: .07em;
+      background: rgba(32,227,178,.07);
+      border: 1px solid rgba(32,227,178,.19);
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .quantum-pagination a:hover {
+      background: rgba(32,227,178,.15);
+    }
+    .quantum-pagination a.active {
+      color: #d3c5ff;
+      background: rgba(164,130,255,.15);
+      border-color: rgba(164,130,255,.35);
+    }
+    html[data-theme="light"] .quantum-pagination a.active {
+      color: #6343c4;
+    }
+    .quantum-pagination .pagination-arrow {
+      font-size: 14px;
+    }
+
+/* ========== SERVERS RESPONSIVE ========== */
+
+/* Default (Desktop) */
+.servers {
+  border-radius: 24px;
+  padding: 12px;
 }
+
+.list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+/* Tablet */
 @media (max-width: 768px) {
-    .quantum-title {
-        font-size: 2.5rem;
-    }
-    .footer-links {
-        flex-direction: column;
-        gap: 15px;
-    }
-    .footer {
-        padding: 30px 20px;
-    }
+  .list {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  
+  .server {
+    padding: 10px;
+  }
+  
+  .country {
+    font-size: 13px;
+  }
+  
+  .endpoint {
+    font-size: 9px;
+  }
 }
-@media (min-width: 1024px) {
-    .quantum-title {
-        font-size: 3rem;
-    }
+
+/* HP (max-width: 640px) */
+@media (max-width: 640px) {
+  .list {
+    grid-template-columns: 1fr !important;
+    gap: 12px;
+  }
+  
+  .server {
+    padding: 12px;
+  }
+  
+  .identity {
+    padding-right: 85px;
+  }
+  
+  .flag {
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+    font-size: 20px;
+  }
+  
+  .country {
+    font-size: 14px;
+  }
+  
+  .endpoint {
+    font-size: 8px;
+    max-width: 150px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .check {
+    min-width: 65px;
+    height: 26px;
+    font-size: 8px;
+  }
+  
+  .metric {
+    font-size: 8px;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  
+  .mode-row,
+  .protocol-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  
+  .chooser-inner {
+    padding: 6px;
+  }
+  
+  .config-main {
+    height: 38px;
+    font-size: 10px;
+  }
 }
-</style>
+
+/* HP kecil (max-width: 480px) */
+@media (max-width: 480px) {
+  .server-head h2 {
+    font-size: 18px;
+  }
+  
+  .count {
+    height: 24px;
+    min-width: 28px;
+    font-size: 10px;
+    padding: 0 6px;
+  }
+  
+  .identity {
+    padding-right: 70px;
+  }
+  
+  .flag {
+    width: 32px;
+    height: 32px;
+    flex: 0 0 32px;
+    font-size: 16px;
+  }
+  
+  .country {
+    font-size: 12px;
+  }
+  
+  .endpoint {
+    font-size: 7px;
+    max-width: 120px;
+  }
+  
+  .check-wrap {
+    right: 8px;
+    top: 8px;
+  }
+  
+  .check {
+    min-width: 55px;
+    height: 24px;
+    font-size: 7px;
+    gap: 4px;
+  }
+  
+  .provider strong {
+    font-size: 10px;
+  }
+  
+  .metric {
+    font-size: 7px;
+    padding: 6px;
+  }
+  
+  .config-main {
+    height: 34px;
+    font-size: 9px;
+  }
+  
+  .mode, .copy {
+    height: 30px;
+    font-size: 8px;
+  }
+}
+
+/* Desktop besar */
+@media (min-width: 1200px) {
+  .list {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+  
+  .server {
+    padding: 14px;
+  }
+} 
+  </style>
     </head>
    <body>
     ${SIDEBAR_COMPONENT}
-    <div class="quantum-container">
-    <div class="mt-10"></div>
-    <div class="wildcard-dropdown flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-2xl p-2 shadow-lg border border-white/20">
-        <select id="rootDomain" name="rootDomain" onchange="onRootDomainChange(event)" class="px-3 py-2 bg-gray-800 text-white rounded-xl border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer hover:bg-gray-700 transition-all duration-200 text-sm font-medium" style="width: 100px; height: 45px;">
-            ${(config.ZONES || []).map(z => `<option value="${z.name}" ${config.ROOT_DOMAIN === z.name ? 'selected' : ''}>${z.name}</option>`).join('')}
-        </select>
+    <main class="app">
+      <header class="hero">
+        <div class="top">
+          <div class="brand">
+            <div class="logo">
+              <svg viewBox="0 0 32 32" fill="none"><path d="M16 3 26 7v7.8c0 6.1-4.1 10.7-10 13.1C10.1 25.5 6 20.9 6 14.8V7l10-4Z" fill="rgba(255,255,255,.16)" stroke="#fff" stroke-width="1.4"/><path d="m19 6.8-9 11h5l-2.2 7.5L22 14.2h-5l2-7.4Z" fill="#fff"/></svg>
+            </div>
+            <div><div class="micro">GEOVPN</div><div class="brand-title">Config Lifetime</div></div>
+          </div>
+          <div class="top-buttons">
+            <select id="rootDomain" name="rootDomain" onchange="onRootDomainChange(event)" class="head-btn" style="width: auto; appearance: none; background: transparent; padding-right: 0;">
+                ${(config.ZONES || []).map(z => `<option style="color: black" value="${z.name}" ${config.ROOT_DOMAIN === z.name ? 'selected' : ''}>${z.name}</option>`).join('')}
+            </select>
+            
+            <select id="wildcard" name="wildcard" onchange="onWildcardChange(event)" class="head-btn" style="width: auto; appearance: none; background: transparent; padding-right: 0;">
+                <option style="color: black" value="" ${!selectedWildcard ? 'selected' : ''}>No Wildcard</option>
+                ${allWildcards.map(w => `<option style="color: black" value="${w}" ${selectedWildcard === w ? 'selected' : ''}>${w}</option>`).join('')}
+            </select>
+            
+            <select id="configType" name="configType" onchange="onConfigTypeChange(event)" class="head-btn" style="width: auto; appearance: none; background: transparent; padding-right: 0;">
+                <option style="color: black" value="tls" ${selectedConfigType === 'tls' ? 'selected' : ''}>TLS</option>
+                <option style="color: black" value="non-tls" ${selectedConfigType === 'non-tls' ? 'selected' : ''}>NON TLS</option> 
+            </select>
+
+            <button class="theme" id="themeToggle" type="button" aria-label="Tema" onclick="toggleDarkMode()">
+              <svg class="moon" viewBox="0 0 24 24" fill="none"><path d="M20.3 15.5a8.6 8.6 0 0 1-11.8-11 9 9 0 1 0 11.8 11Z" stroke="currentColor" stroke-width="1.9"/></svg>
+              <svg class="sun" viewBox="0 0 24 24" fill="none"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0-6v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M19 5l-2 2M7 17l-2 2" stroke="currentColor" stroke-width="1.8"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="headline">
+          <h1><span>VPN Config</span><br>lifetime access.</h1>
+          <p>WS memakai bug pilihanmu; WC memasang domain terpilih pada host dan SNI.</p>
+        </div>
+        <div class="info">
+          <div class="info-box">
+            <span class="label">PILIH PROTOKOL</span>
+            <div class="tags"><span class="tag">VLESS</span><span class="tag">TROJAN</span><span class="tag">SS</span><span class="tag">WS</span><span class="tag">WC</span></div>
+          </div>
+          <div class="info-box transport"><span class="label">TRANSPORT</span><strong>WS + TLS + WC</strong></div>
+        </div>
+        <div class="path">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M9 17 4 12l5-5m6 0 5 5-5 5M14 4 10 20" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>
+          <div><b>CUSTOM PATH</b><p>Otomatis: 
+          <br>
+    1.<code>/Free-VPN-CF-Geo-Project/IP=PORT</code>
+    <br>
+    2.<code>/Free-VPN-CF-Geo-Project/IP=PORT</code></p></div>
+        </div>
         
-        <select id="wildcard" name="wildcard" onchange="onWildcardChange(event)" class="px-3 py-2 bg-gray-800 text-white rounded-xl border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer hover:bg-gray-700 transition-all duration-200 text-sm font-medium" style="width: 90px; height: 45px;">
-            <option value="" ${!selectedWildcard ? 'selected' : ''}>No Wildcard</option>
-            ${allWildcards.map(w => `<option value="${w}" ${selectedWildcard === w ? 'selected' : ''}>${w}</option>`).join('')}
-        </select>
-        
-        <select id="configType" name="configType" onchange="onConfigTypeChange(event)" class="px-3 py-2 bg-gray-800 text-white rounded-xl border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer hover:bg-gray-700 transition-all duration-200 text-sm font-medium" style="width: 60px; height: 45px;">
-            <option value="tls" ${selectedConfigType === 'tls' ? 'selected' : ''}>TLS</option>
-            <option value="non-tls" ${selectedConfigType === 'non-tls' ? 'selected' : ''}>NON TLS</option> 
-        </select>
-        
-        <a href="${telegrambot}" target="_blank" class="block">
-            <button class="bg-gradient-to-r from-green-400 to-green-600 hover:from-green-500 hover:to-green-700 rounded-full border-2 border-gray-900 p-2 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-6">
-                    <path d="M22 12A10 10 0 0 1 12 2A10 10 0 0 1 2 12A10 10 0 0 1 12 22A10 10 0 0 1 22 12z"></path>
-                    <path d="M7 10l5 5l5-5"></path>
-                    <path d="M12 15l-5 5"></path>
-                    <path d="M12 15l5 5"></path>
-                </svg> 
-            </button> 
-        </a>
-    </div>
-                
-            <div class="w-full h-12 px-2 py-1 flex items-center space-x-2 shadow-lg border"
-    style="border-width: 1px; border-style: solid; border-color: #28a745; height: 55px; border-radius: 10px; background-image: url('https://www.transparenttextures.com/patterns/cubes.png'); overflow-x: auto; overflow-y: hidden;">
-    ${buildCountryFlag(page)}
-</div>
+        <div class="w-full h-12 px-2 py-1 flex items-center space-x-2 shadow-lg border mt-2"
+        style="border-width: 1px; border-style: solid; border-color: rgba(32,227,178,.2); height: 55px; border-radius: 10px; background: rgba(32,227,178,.07); overflow-x: auto; overflow-y: hidden;">
+        ${buildCountryFlag(page)}
+        </div>
+      </header>
+
+      <section class="servers">
+        <div class="server-head"><h2>Server</h2><span class="count" id="count">${totalFilteredConfigs}</span></div>
+        <div class="list" id="list">
                 ${cardsHTML}
+        </div>
                 ${showOptionsScript}
                 
                 <script>
-            /* [PERBAIKAN 4]: Menggunakan document.documentElement untuk mendapatkan tag <html> */
-            function toggleDarkMode() {
-                const rootElement = document.documentElement; // <-- Diperbaiki!
-                if (rootElement.classList.contains("dark")) {
-                  rootElement.classList.remove("dark");
-                  localStorage.setItem('theme', 'light');
-                } else {
-                  rootElement.classList.add("dark");
-                  localStorage.setItem('theme', 'dark');
-                }
+            function toggleTheme() {
+                const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+                document.documentElement.dataset.theme = next;
+                try { localStorage.setItem("j1-theme", next); } catch(e){}
             }
+            
+            // Assign to the button with id="themeToggle"
+            document.addEventListener('DOMContentLoaded', () => {
+                const themeBtn = document.getElementById("themeToggle");
+                if (themeBtn) {
+                    themeBtn.addEventListener("click", toggleTheme);
+                }
+                
+                // Initialize theme
+                try { 
+                    const savedTheme = localStorage.getItem("j1-theme");
+                    if (savedTheme) {
+                        document.documentElement.dataset.theme = savedTheme;
+                    }
+                } catch (e) {}
+            });
         </script>
                 <script>
                 document.addEventListener('DOMContentLoaded', () => {
@@ -4719,8 +4397,12 @@ select:focus {
                     const checkAllProxies = async () => {
                         for (const row of rows) {
                             const ipPort = row.dataset.ipPort;
-                            const statusElement = row.querySelector('.proxy-status');
-                            const healthCheckUrl = \`/geo-ip?ip=\${ipPort}\`;
+                            const checkWrap = row.querySelector('.check-wrap');
+                            const metricContainer = row.querySelector('.metric');
+                            
+                            // bypass the template parser failure when we save _worker.js
+                            const healthCheckUrl = "/geo-ip?ip=" + ipPort;
+                            
                             try {
                                 const response = await fetch(healthCheckUrl);
                                 if (!response.ok) throw new Error('Network response was not ok');
@@ -4728,52 +4410,34 @@ select:focus {
                                 const data = await response.json();
                                 const status = data.status || 'UNKNOWN';
                                 let delay = parseFloat(data.delay) || NaN;
-                                let delayHTML = '';
-                                if (!isNaN(delay)) {
-                                    delay = Math.round(delay);
-                                    delayHTML = \`<span class="delay-badge" style="font-size: 0.75rem;">(\${delay}ms)</span>\`;
-                                } else {
-                                    delayHTML = '<span class="delay-badge" style="font-size: 0.75rem;">(N/A)</span>';
-                                }
-                                let statusHTML = '';
+                                let speed = data.speed_est || '-';
                                 
+                                let statusHTML = '';
                                 switch (status) {
                                     case 'ACTIVE':
-                                        statusHTML = \`
-                                            <div class="status-badge neon-active">
-                                                <i class="fas fa-bolt"></i>
-                                                <span>ACTIVE</span>
-                                            </div>
-                                        \`;
+                                        statusHTML = '<button class="check active"><i></i>ACTIVE</button>';
                                         break;
                                     case 'DEAD':
-                                        statusHTML = \`
-                                            <div class="status-badge neon-dead">
-                                                <i class="fas fa-times-circle"></i>
-                                                <span>DEAD</span>
-                                            </div>
-                                        \`;
-                                        delayHTML = '<span class="delay-badge">(∞ ms)</span>';
+                                        statusHTML = '<button class="check inactive"><i></i>INACTIVE</button>';
                                         break;
                                     default:
-                                        statusHTML = \`
-                                            <div class="status-badge" style="color: orange;">
-                                                <i class="fas fa-question-circle"></i>
-                                                <span>UNKNOWN</span>
-                                            </div>
-                                        \`;
+                                        statusHTML = '<button class="check inactive" style="color: orange; border-color: rgba(255,165,0,.22); background: rgba(255,165,0,.10);"><i></i>UNKNOWN</button>';
                                 }
                                 
-                                statusElement.innerHTML = statusHTML + delayHTML;
+                                if (checkWrap) checkWrap.innerHTML = statusHTML;
+                                
+                                if (metricContainer) {
+                                    let delayText = isNaN(delay) ? 'N/A' : Math.round(delay) + 'ms';
+                                    metricContainer.innerHTML = '<span>Delay: ' + delayText + '</span><span class="pipe">|</span><span class="speed">Speed: ' + speed + '</span>';
+                                }
                             } catch (error) {
-                                console.error('Health check error for \${ipPort}:', error);
-                                statusElement.innerHTML = \`
-                                    <div class="status-badge" style="color: cyan;">
-                                        <i class="fas fa-exclamation-triangle"></i>
-                                        <span>ERROR</span>
-                                    </div>
-                                    <span class="delay-badge">(! ms)</span>
-                                \`;
+                                console.error('Health check error for ' + ipPort + ':', error);
+                                if (checkWrap) {
+                                    checkWrap.innerHTML = '<button class="check inactive" style="color: cyan; border-color: rgba(0,255,255,.22); background: rgba(0,255,255,.10);"><i></i>ERROR</button>';
+                                }
+                                if (metricContainer) {
+                                    metricContainer.innerHTML = '<span>Delay: ! ms</span><span class="pipe">|</span><span class="speed">Speed: -</span>';
+                                }
                             }
                             await new Promise(resolve => setTimeout(resolve, 200)); // 200ms delay between checks
                         }
@@ -4795,32 +4459,32 @@ select:focus {
                 ${nextPage}
             </div>
            
-          <!-- Showing X to Y of Z Proxies message -->
-          <div style="text-align: center; margin-top: 16px; color: var(--primary); font-family: 'Rajdhani', sans-serif;">
+          <div style="text-align: center; margin-top: 16px; color: var(--muted); font-size: 11px;">
             Showing ${startIndex + 1} to ${endIndex} of ${totalFilteredConfigs} Proxies
-           
- 
-      <footer>
-    <div class="content">
-        <div class="social-icons">
-            <a href="https://github.com/jaka1m" class="social-icon github">
-                <i class="fab fa-github"></i>
-            </a>
-            <a href="https://wa.me/6282276031731" class="social-icon whatsapp">
-                <i class="fab fa-whatsapp"></i>
-            </a>
-            <a href="https://t.me/sampiiiiu" class="social-icon telegram">
-                <i class="fab fa-telegram-plane"></i>
-            </a>
-        </div>
-        <div class="copyright-fire">
-            <p style="margin: 0; font-size: 0.9rem; font-weight: 600;">© GEO PROJECT</p>
-        </div>
-    </div>
-</footer>
+          </div>
+      </section>
+
+      <footer style="margin-top: 20px;">
+        <div class="content">
+            <div class="social-icons">
+                <a href="https://github.com/jaka1m" class="social-icon github">
+                    <i class="fab fa-github"></i>
+                </a>
+                <a href="https://wa.me/6282276031731" class="social-icon whatsapp">
+                    <i class="fab fa-whatsapp"></i>
+                </a>
+                <a href="https://t.me/sampiiiiu" class="social-icon telegram">
+                    <i class="fab fa-telegram-plane"></i>
+                </a>
             </div>
-                </div>
+            <div class="copyright-fire" style="text-align: center;">
+                <p style="margin: 0; font-size: 0.9rem; font-weight: 600;">© GEO PROJECT</p>
             </div>
+        </div>
+    </footer>
+    </main>
+
+    <div class="toast" id="toast"></div>
         </div>
         
         <script>
