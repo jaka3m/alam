@@ -1,0 +1,6 @@
+
+ ⛅️ wrangler 4.96.0
+───────────────────
+⎔ Starting local server...
+[wrangler:info] Ready on http://localhost:8787
+[wrangler:info] GET /list 404 Not Found (223ms)

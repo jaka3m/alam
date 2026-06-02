@@ -108,11 +108,14 @@ async function ensureCfConfig(config) {
 
   if (!cachedAccountId) {
       try {
+        console.log(`Attempting to fetch fallback Account ID...`);
         const res = await fetch("https://api.cloudflare.com/client/v4/accounts", { headers });
         const data = await res.json();
         if (data.success && data.result.length > 0) {
           cachedAccountId = data.result[0].id;
           console.log(`Account ID Fallback: ${cachedAccountId}`);
+        } else {
+            console.error(`Fallback Account ID API response was not successful or empty: ${JSON.stringify(data)}`);
         }
       } catch (e) {
         console.error("Error fetching fallback Account ID:", e);
@@ -4070,9 +4073,10 @@ ${SIDEBAR_COMPONENT}
     const ep = encodeURIComponent(path);
     const provider = server.isp || "Unknown Provider";
     const name = p => \`\${p.toUpperCase()} \${selectedMode.toUpperCase()} \${provider}\`;
-    const vless = \`vless://\${UUID}@\${connectHost}:443?encryption=none&security=tls&type=ws&host=\${tlsHost}&path=\${ep}&sni=\${tlsHost}#\${encodeURIComponent(name("vless"))}\`;
-    const trojan = \`trojan://\${UUID}@\${connectHost}:443?security=tls&type=ws&host=\${tlsHost}&path=\${ep}&sni=\${tlsHost}#\${encodeURIComponent(name("trojan"))}\`;
-    const shadowsocks = \`ss://\${btoa('none:' + UUID)}@\${connectHost}:443?encryption=none&type=ws&host=\${tlsHost}&path=\${ep}&security=tls&sni=\${tlsHost}#\${encodeURIComponent(name("shadowsocks"))}\`;
+    // As per user request, path must NOT be url encoded in the URI string
+    const vless = \`vless://\${UUID}@\${connectHost}:443?encryption=none&security=tls&type=ws&host=\${tlsHost}&path=\${path}&sni=\${tlsHost}#\${encodeURIComponent(name("vless"))}\`;
+    const trojan = \`trojan://\${UUID}@\${connectHost}:443?security=tls&type=ws&host=\${tlsHost}&path=\${path}&sni=\${tlsHost}#\${encodeURIComponent(name("trojan"))}\`;
+    const shadowsocks = \`ss://\${btoa('none:' + UUID)}@\${connectHost}:443?encryption=none&type=ws&host=\${tlsHost}&path=\${path}&security=tls&sni=\${tlsHost}#\${encodeURIComponent(name("shadowsocks"))}\`;
     return {vless,trojan,shadowsocks}[protocol];
   }
   async function copyValue(value, text) {
