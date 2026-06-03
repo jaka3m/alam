@@ -3947,8 +3947,8 @@ function buildCountryFlag(page) {
       width:43px;height:43px;flex:0 0 43px;border-radius:13px;border:1px solid var(--line);
       display:grid;place-items:center;font-size:22px;background:rgba(255,255,255,.03)
     }
-    .country{font-size:15px;font-weight:740;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .endpoint{font:11px ui-monospace,Consolas,monospace;color:var(--muted);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .country{font-size:16px;font-weight:740;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .endpoint{font:12px ui-monospace,Consolas,monospace;color:var(--muted);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .check-wrap{position:absolute;right:12px;top:13px;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
     .check{
       min-width:78px;height:29px;border-radius:999px;border:1px solid transparent;display:flex;gap:6px;
@@ -3962,8 +3962,8 @@ function buildCountryFlag(page) {
     .check.inactive{color:var(--red);background:rgba(251,113,133,.10);border-color:rgba(251,113,133,.22)}
     @keyframes spin{to{transform:rotate(360deg)}}
     .provider{border:1px solid rgba(255,255,255,.045);border-radius:11px;padding:8px 9px;background:rgba(255,255,255,.024)}
-    .provider small{display:block;color:var(--sub);font-size:8px;letter-spacing:.2em;font-weight:850;margin-bottom:4px}
-    .provider strong{font-size:12px;font-weight:620}
+    .provider small{display:block;color:var(--sub);font-size:10px;letter-spacing:.2em;font-weight:850;margin-bottom:4px}
+    .provider strong{font-size:14px;font-weight:620}
     .metric{
       display:flex;align-items:center;justify-content:center;gap:6px;min-height:37px;border-radius:11px;
       color:var(--text);background:rgba(1,8,12,.70);font:9px ui-monospace,Consolas,monospace;
@@ -3982,7 +3982,7 @@ function buildCountryFlag(page) {
     .chooser{max-height:0;opacity:0;pointer-events:none;overflow:hidden;transition:max-height .2s,opacity .15s,margin-top .18s;margin-top:0}
     .server.open .chooser{max-height:290px;opacity:1;pointer-events:auto;margin-top:7px}
     .chooser-inner{border:1px solid var(--line);border-radius:12px;padding:8px;background:rgba(255,255,255,.02)}
-    .choose-label{font-size:8px;color:var(--sub);font-weight:850;letter-spacing:.19em;margin:0 0 6px}
+    .choose-label{font-size:11px;color:var(--sub);font-weight:850;letter-spacing:.19em;margin:0 0 6px}
     .mode-row,.protocol-row{display:grid;gap:5px}
     .mode-row{grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:8px}
     .protocol-row{grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -4183,11 +4183,11 @@ function buildCountryFlag(page) {
   }
   
   .country {
-    font-size: 14px;
+    font-size: 16px;
   }
   
   .endpoint {
-    font-size: 8px;
+    font-size: 11px;
     max-width: 150px;
     white-space: nowrap;
     overflow: hidden;
@@ -4196,19 +4196,22 @@ function buildCountryFlag(page) {
   
   .check {
     min-width: 65px;
-    height: 26px;
-    font-size: 8px;
+    height: 30px;
+    font-size: 10px;
   }
   
   .metric {
-    font-size: 8px;
+    font-size: 11px;
     flex-wrap: wrap;
     gap: 4px;
   }
   
-  .mode-row,
-  .protocol-row {
+  .mode-row {
     grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .protocol-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 6px;
   }
   
@@ -4217,8 +4220,8 @@ function buildCountryFlag(page) {
   }
   
   .config-main {
-    height: 38px;
-    font-size: 10px;
+    height: 42px;
+    font-size: 12px;
   }
 }
 
@@ -4247,11 +4250,11 @@ function buildCountryFlag(page) {
   }
   
   .country {
-    font-size: 12px;
+    font-size: 15px;
   }
   
   .endpoint {
-    font-size: 7px;
+    font-size: 10px;
     max-width: 120px;
   }
   
@@ -4262,28 +4265,28 @@ function buildCountryFlag(page) {
   
   .check {
     min-width: 55px;
-    height: 24px;
-    font-size: 7px;
+    height: 28px;
+    font-size: 10px;
     gap: 4px;
   }
   
   .provider strong {
-    font-size: 10px;
+    font-size: 13px;
   }
   
   .metric {
-    font-size: 7px;
+    font-size: 10px;
     padding: 6px;
   }
   
   .config-main {
-    height: 34px;
-    font-size: 9px;
+    height: 38px;
+    font-size: 12px;
   }
   
   .mode, .copy {
-    height: 30px;
-    font-size: 8px;
+    height: 34px;
+    font-size: 10px;
   }
 }
 
