@@ -4318,21 +4318,28 @@ function buildCountryFlag(page) {
           </div>
           <div class="info-box transport"><span class="label">TRANSPORT</span><strong>WS + TLS + WC</strong></div>
         </div>
-        <div class="flex flex-wrap sm:flex-nowrap items-center gap-1 sm:gap-2">
-            <select id="rootDomain" name="rootDomain" onchange="onRootDomainChange(event)" class="head-btn" style="width: auto; appearance: none; background: transparent; padding-right: 0;">
-                ${(config.ZONES || []).map(z => `<option style="color: black" value="${z.name}" ${config.ROOT_DOMAIN === z.name ? 'selected' : ''}>${z.name}</option>`).join('')}
-            </select>
-            
-            <select id="wildcard" name="wildcard" onchange="onWildcardChange(event)" class="head-btn" style="width: auto; appearance: none; background: transparent; padding-right: 0;">
-                <option style="color: black" value="" ${!selectedWildcard ? 'selected' : ''}>No Wildcard</option>
-                ${allWildcards.map(w => `<option style="color: black" value="${w}" ${selectedWildcard === w ? 'selected' : ''}>${w}</option>`).join('')}
-            </select>
-            
-            <button class="theme" id="themeToggle" type="button" aria-label="Tema" onclick="toggleDarkMode()" style="position: fixed; top: 20px; right: 20px; z-index: 999;">
-  <svg class="moon" viewBox="0 0 24 24" fill="none"><path d="M20.3 15.5a8.6 8.6 0 0 1-11.8-11 9 9 0 1 0 11.8 11Z" stroke="currentColor" stroke-width="1.9"/></svg>
-  <svg class="sun" viewBox="0 0 24 24" fill="none"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0-6v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M19 5l-2 2M7 17l-2 2" stroke="currentColor" stroke-width="1.8"/></svg>
-</button>
-          </div>
+        <div class="flex flex-nowrap items-center gap-2 bg-black/90 backdrop-blur-sm rounded-xl shadow-lg p-3 border border-blue-500/50">
+  <select id="rootDomain" name="rootDomain" onchange="onRootDomainChange(event)" 
+          class="px-3 py-2 rounded-lg bg-gradient-to-r from-blue-900 to-indigo-900 border border-blue-500 text-white text-sm font-medium cursor-pointer hover:from-blue-800 hover:to-indigo-800 hover:border-blue-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent w-full sm:w-auto">
+    ${(config.ZONES || []).map(z => `<option value="${z.name}" ${config.ROOT_DOMAIN === z.name ? 'selected' : ''} class="text-white bg-black">${z.name}</option>`).join('')}
+  </select>
+
+  <select id="wildcard" name="wildcard" onchange="onWildcardChange(event)" 
+          class="px-3 py-2 rounded-lg bg-gradient-to-r from-blue-900 to-indigo-900 border border-blue-500 text-white text-sm font-medium cursor-pointer hover:from-blue-800 hover:to-indigo-800 hover:border-blue-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent w-full sm:w-auto">
+    <option value="" ${!selectedWildcard ? 'selected' : ''} class="text-white bg-black">No Wildcard</option>
+    ${allWildcards.map(w => `<option value="${w}" ${selectedWildcard === w ? 'selected' : ''} class="text-white bg-black">${w}</option>`).join('')}
+  </select>
+
+  <button class="theme p-2.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2" 
+          id="themeToggle" type="button" aria-label="Tema" onclick="toggleDarkMode()">
+    <svg class="moon w-5 h-5" viewBox="0 0 24 24" fill="none">
+      <path d="M20.3 15.5a8.6 8.6 0 0 1-11.8-11 9 9 0 1 0 11.8 11Z" stroke="currentColor" stroke-width="1.9"/>
+    </svg>
+    <svg class="sun w-5 h-5" viewBox="0 0 24 24" fill="none">
+      <path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0-6v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M19 5l-2 2M7 17l-2 2" stroke="currentColor" stroke-width="1.8"/>
+    </svg>
+  </button>
+</div>
         
         <div class="w-full h-12 px-2 py-1 flex items-center space-x-2 shadow-lg border mt-2"
         style="border-width: 1px; border-style: solid; border-color: rgba(32,227,178,.2); height: 55px; border-radius: 10px; background: rgba(32,227,178,.07); overflow-x: auto; overflow-y: hidden;">
@@ -4451,34 +4458,10 @@ function buildCountryFlag(page) {
 function copy(text) {
     navigator.clipboard.writeText(text)
         .then(() => {
-            Swal.fire({
-                icon: 'success',
-                background: 'rgba(6, 18, 67, 0.95)',
-                color: 'white',
-                title: 'URL Copied!',
-                width: '200px',
-                padding: '10px',
-                text: text,
-                timer: 1200,
-                showConfirmButton: false,
-                backdrop: 'rgba(0,0,0,0.4)',
-                customClass: {
-        title: 'small-title',
-        htmlContainer: 'small-text'
-    }
-});
+            showToast('URL Copied!', false);
         })
         .catch(() => {
-            Swal.fire({
-                icon: 'error',
-                title: 'Copy Failed',
-                text: 'Please try again!',
-                width: '220px',
-                background: 'rgba(6, 18, 67, 0.95)',
-                color: 'white',
-                timer: 1500,
-                showConfirmButton: false
-            });
+            showToast('Copy Failed. Please try again!', true);
         });
 }
 const updateURL = (params) => {
@@ -4509,17 +4492,23 @@ function onConfigTypeChange(event) {
     updateURL([{ key: 'configType', value: event.target.value }]);
 }
 function showToast(message, isError = false) {
-    const toast = document.createElement('div');
-    toast.className = 'quantum-toast';
+    const toast = document.getElementById('toast');
+    if (!toast) return;
     toast.textContent = message;
     if (isError) {
         toast.style.background = '#ff3366';
+        toast.style.borderColor = '#ff3366';
+    } else {
+        toast.style.background = '#123033';
+        toast.style.borderColor = 'var(--line2)';
     }
-    document.body.appendChild(toast);
-    setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateY(100%)';
-        setTimeout(() => toast.remove(), 300);
+    toast.classList.add('show');
+    
+    // Clear any existing timeout
+    if (toast.timeoutId) clearTimeout(toast.timeoutId);
+    
+    toast.timeoutId = setTimeout(() => {
+        toast.classList.remove('show');
     }, 2000);
 }
 function executeSearch() {
