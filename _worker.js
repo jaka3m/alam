@@ -16,13 +16,28 @@ async function getCloudflareZones(config) {
   };
 
   try {
-    const res = await fetch(`https://api.cloudflare.com/client/v4/zones?status=active`, { headers });
-    const data = await res.json();
-    if (data.success) {
-      cachedZonesList = data.result.map(z => ({ id: z.id, name: z.name }));
+    let allZones = [];
+    let page = 1;
+    let totalPages = 1;
+
+    do {
+      const res = await fetch(`https://api.cloudflare.com/client/v4/zones?status=active&per_page=50&page=${page}`, { headers });
+      const data = await res.json();
+
+      if (data.success) {
+        allZones = allZones.concat(data.result);
+        totalPages = data.result_info ? data.result_info.total_pages : 1;
+        page++;
+      } else {
+        break;
+      }
+    } while (page <= totalPages);
+
+    if (allZones.length > 0) {
+      cachedZonesList = allZones.map(z => ({ id: z.id, name: z.name }));
       
       // Auto-populate the zone ID cache for all fetched domains
-      for (const zone of data.result) {
+      for (const zone of allZones) {
         cachedZoneId[zone.name] = zone.id;
         if (!cachedAccountId && zone.account && zone.account.id) {
           cachedAccountId = zone.account.id;
