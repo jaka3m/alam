@@ -3718,23 +3718,23 @@ function buildCountryFlag(page) {
                     </span>
                     </div>
                     <div class="mt-3">
-                    <div class="h-px bg-[#4682b4] shadow-sm"></div>
+                    <div class="h-px" style="background: var(--border-color); box-shadow: 0 1px 2px var(--shadow-color);"></div>
                     <div class="text-xs">IP : \${config.ip}</div>
                     <div class="text-xs">ISP : \${config.isp}</div>
                     <div class="text-xs">Country : \${config.countryCode}</div>
-                    <div class="h-px bg-[#4682b4] shadow-sm"></div>
+                    <div class="h-px" style="background: var(--border-color); box-shadow: 0 1px 2px var(--shadow-color);"></div>
                     <div class="mt-3">
-                    <button class="bg-gradient-to-r from-cyan-400 to-cyan-600 bg-opacity-80 py-2 px-3 text-xs rounded-md text-white font-semibold shadow-md" onclick="copy('\${simple}')">COPY PATH COUNTRY</button>
+                    <button class="quantum-btn w-full py-2 px-3 text-xs rounded-md font-semibold" onclick="copy('\${simple}')">COPY PATH COUNTRY</button>
                     <div class="mt-3">
-                    <button class="bg-gradient-to-r from-cyan-400 to-cyan-600 bg-opacity-80 py-2 px-3 text-xs rounded-md text-white font-semibold shadow-md" onclick="copy('\${ribet}')">COPY PATH IP PORT</button>
+                    <button class="quantum-btn w-full py-2 px-3 text-xs rounded-md font-semibold" onclick="copy('\${ribet}')">COPY PATH IP PORT</button>
                     <div class="mt-3">
-                        <button class="bg-gradient-to-r from-red-500 to-red-700 bg-opacity-80 py-2 px-3 text-xs rounded-md text-white font-semibold shadow-md" onclick="Swal.close()">Close</button>
+                        <button style="background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); width: 100%;" class="py-2 px-3 text-xs rounded-md font-semibold transition-all hover:bg-red-500/20" onclick="Swal.close()">Close</button>
                     </div>
                 \`,
                 showCloseButton: false,
                 showConfirmButton: false,
-                background: 'rgba(6, 18, 67, 0.70)',
-                color: 'white',
+                background: 'var(--bg-card)',
+                color: 'var(--text-primary)',
                 customClass: {
                     popup: 'rounded-popup',
                     closeButton: 'close-btn'
