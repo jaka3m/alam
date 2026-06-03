@@ -553,11 +553,11 @@ const SIDEBAR_COMPONENT = `
                 <div x-show="showSearch" class="search-quantum flex flex-col items-center mb-4">
                     <div class="flex w-full items-center gap-2.5">
                         <input
-                            type="text"
-                            id="search-bar"
-                            placeholder="Search..."
-                            class="flex-1 h-10 pl-3 border-2 border-white border-opacity-30 rounded-lg bg-transparent text-white font-medium outline-none transition-all duration-300 focus:border-blue-400 focus:placeholder-white focus:placeholder-opacity-70 placeholder-white placeholder-opacity-50"
-                        >
+    type="text"
+    id="search-bar"
+    placeholder="Search..."
+    class="w-48 h-10 px-1 border-2 border-white border-opacity-30 rounded-lg bg-transparent text-white font-medium outline-none transition-all duration-300 focus:border-blue-400 focus:placeholder-white focus:placeholder-opacity-70 placeholder-white placeholder-opacity-50"
+>
                         <button id="search-button" class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-full p-2 transition-colors duration-200 shadow-lg z-50">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-5 w-5 text-white">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
@@ -682,14 +682,7 @@ const SIDEBAR_COMPONENT = `
                                 <div class="text-xs text-white opacity-80">Premium Member</div>
                             </div>
                         </div>
-                        <button onclick="toggleDarkMode()"
-        class="fixed bottom-4 right-4 bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 rounded-full border-2 border-gray-900 p-2 transition-colors duration-200 shadow-lg z-50"
-        title="Toggle Dark Mode">
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
-    </svg>
-</button>
-                    </div>
+                        </div>
                 </div>
             </div>
         </div>
@@ -3630,9 +3623,7 @@ function buildCountryFlag(page) {
     const endIndex = Math.min(startIndex + configsPerPage, totalFilteredConfigs);
     const visibleConfigs = filteredConfigs.slice(startIndex, endIndex);
     const configType = url.searchParams.get('configType') || 'tls';
-    let cardsHTML = `
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
-    `;
+    let cardsHTML = ``;
     visibleConfigs.forEach((config, index) => {
         const rowNumber = startIndex + index + 1;
         const uuid = generateUUIDv4();
@@ -3714,7 +3705,6 @@ function buildCountryFlag(page) {
         </article>
         `;
     });
-    cardsHTML += `</div>`;
     const showOptionsScript = `
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
     <script>
@@ -3950,8 +3940,8 @@ function buildCountryFlag(page) {
       width:43px;height:43px;flex:0 0 43px;border-radius:13px;border:1px solid var(--line);
       display:grid;place-items:center;font-size:22px;background:rgba(255,255,255,.03)
     }
-    .country{font-size:15px;font-weight:740;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .endpoint{font:11px ui-monospace,Consolas,monospace;color:var(--muted);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .country{font-size:16px;font-weight:740;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .endpoint{font:12px ui-monospace,Consolas,monospace;color:var(--muted);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .check-wrap{position:absolute;right:12px;top:13px;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
     .check{
       min-width:78px;height:29px;border-radius:999px;border:1px solid transparent;display:flex;gap:6px;
@@ -3965,8 +3955,8 @@ function buildCountryFlag(page) {
     .check.inactive{color:var(--red);background:rgba(251,113,133,.10);border-color:rgba(251,113,133,.22)}
     @keyframes spin{to{transform:rotate(360deg)}}
     .provider{border:1px solid rgba(255,255,255,.045);border-radius:11px;padding:8px 9px;background:rgba(255,255,255,.024)}
-    .provider small{display:block;color:var(--sub);font-size:8px;letter-spacing:.2em;font-weight:850;margin-bottom:4px}
-    .provider strong{font-size:12px;font-weight:620}
+    .provider small{display:block;color:var(--sub);font-size:10px;letter-spacing:.2em;font-weight:850;margin-bottom:4px}
+    .provider strong{font-size:14px;font-weight:620}
     .metric{
       display:flex;align-items:center;justify-content:center;gap:6px;min-height:37px;border-radius:11px;
       color:var(--text);background:rgba(1,8,12,.70);font:9px ui-monospace,Consolas,monospace;
@@ -3985,7 +3975,7 @@ function buildCountryFlag(page) {
     .chooser{max-height:0;opacity:0;pointer-events:none;overflow:hidden;transition:max-height .2s,opacity .15s,margin-top .18s;margin-top:0}
     .server.open .chooser{max-height:290px;opacity:1;pointer-events:auto;margin-top:7px}
     .chooser-inner{border:1px solid var(--line);border-radius:12px;padding:8px;background:rgba(255,255,255,.02)}
-    .choose-label{font-size:8px;color:var(--sub);font-weight:850;letter-spacing:.19em;margin:0 0 6px}
+    .choose-label{font-size:11px;color:var(--sub);font-weight:850;letter-spacing:.19em;margin:0 0 6px}
     .mode-row,.protocol-row{display:grid;gap:5px}
     .mode-row{grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:8px}
     .protocol-row{grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -4084,7 +4074,7 @@ function buildCountryFlag(page) {
       .headline p{font-size:13px}
       .info-box{padding:11px}
       .servers{padding:15px}
-      .list{grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+      .list{grid-template-columns:repeat(4,minmax(0,1fr));gap:11px}
       .modal-backdrop{align-items:center}
       .metric{font-size:10px}
     }
@@ -4186,11 +4176,11 @@ function buildCountryFlag(page) {
   }
   
   .country {
-    font-size: 14px;
+    font-size: 16px;
   }
   
   .endpoint {
-    font-size: 8px;
+    font-size: 11px;
     max-width: 150px;
     white-space: nowrap;
     overflow: hidden;
@@ -4199,19 +4189,22 @@ function buildCountryFlag(page) {
   
   .check {
     min-width: 65px;
-    height: 26px;
-    font-size: 8px;
+    height: 30px;
+    font-size: 10px;
   }
   
   .metric {
-    font-size: 8px;
+    font-size: 11px;
     flex-wrap: wrap;
     gap: 4px;
   }
   
-  .mode-row,
-  .protocol-row {
+  .mode-row {
     grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .protocol-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 6px;
   }
   
@@ -4220,8 +4213,8 @@ function buildCountryFlag(page) {
   }
   
   .config-main {
-    height: 38px;
-    font-size: 10px;
+    height: 42px;
+    font-size: 12px;
   }
 }
 
@@ -4250,11 +4243,11 @@ function buildCountryFlag(page) {
   }
   
   .country {
-    font-size: 12px;
+    font-size: 15px;
   }
   
   .endpoint {
-    font-size: 7px;
+    font-size: 10px;
     max-width: 120px;
   }
   
@@ -4265,35 +4258,35 @@ function buildCountryFlag(page) {
   
   .check {
     min-width: 55px;
-    height: 24px;
-    font-size: 7px;
+    height: 28px;
+    font-size: 10px;
     gap: 4px;
   }
   
   .provider strong {
-    font-size: 10px;
+    font-size: 13px;
   }
   
   .metric {
-    font-size: 7px;
+    font-size: 10px;
     padding: 6px;
   }
   
   .config-main {
-    height: 34px;
-    font-size: 9px;
+    height: 38px;
+    font-size: 12px;
   }
   
   .mode, .copy {
-    height: 30px;
-    font-size: 8px;
+    height: 34px;
+    font-size: 10px;
   }
 }
 
-/* Desktop besar */
-@media (min-width: 1200px) {
+/* Desktop responsive grid */
+@media (min-width: 720px) {
   .list {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 14px;
   }
   
@@ -4314,7 +4307,18 @@ function buildCountryFlag(page) {
             </div>
             <div><div class="micro">GEOVPN</div><div class="brand-title">Config Lifetime</div></div>
           </div>
-          <div class="top-buttons">
+          
+        </div>
+        <div class="headline">
+          </div>
+        <div class="info">
+          <div class="info-box">
+            <span class="label">PILIH PROTOKOL</span>
+            <div class="tags"><span class="tag">VLESS</span><span class="tag">TROJAN</span><span class="tag">SS</span><span class="tag">WS</span><span class="tag">WC</span></div>
+          </div>
+          <div class="info-box transport"><span class="label">TRANSPORT</span><strong>WS + TLS + WC</strong></div>
+        </div>
+        <div class="flex flex-wrap sm:flex-nowrap items-center gap-1 sm:gap-2">
             <select id="rootDomain" name="rootDomain" onchange="onRootDomainChange(event)" class="head-btn" style="width: auto; appearance: none; background: transparent; padding-right: 0;">
                 ${(config.ZONES || []).map(z => `<option style="color: black" value="${z.name}" ${config.ROOT_DOMAIN === z.name ? 'selected' : ''}>${z.name}</option>`).join('')}
             </select>
@@ -4324,36 +4328,11 @@ function buildCountryFlag(page) {
                 ${allWildcards.map(w => `<option style="color: black" value="${w}" ${selectedWildcard === w ? 'selected' : ''}>${w}</option>`).join('')}
             </select>
             
-            <select id="configType" name="configType" onchange="onConfigTypeChange(event)" class="head-btn" style="width: auto; appearance: none; background: transparent; padding-right: 0;">
-                <option style="color: black" value="tls" ${selectedConfigType === 'tls' ? 'selected' : ''}>TLS</option>
-                <option style="color: black" value="non-tls" ${selectedConfigType === 'non-tls' ? 'selected' : ''}>NON TLS</option> 
-            </select>
-
-            <button class="theme" id="themeToggle" type="button" aria-label="Tema" onclick="toggleDarkMode()">
-              <svg class="moon" viewBox="0 0 24 24" fill="none"><path d="M20.3 15.5a8.6 8.6 0 0 1-11.8-11 9 9 0 1 0 11.8 11Z" stroke="currentColor" stroke-width="1.9"/></svg>
-              <svg class="sun" viewBox="0 0 24 24" fill="none"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0-6v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M19 5l-2 2M7 17l-2 2" stroke="currentColor" stroke-width="1.8"/></svg>
-            </button>
+            <button class="theme" id="themeToggle" type="button" aria-label="Tema" onclick="toggleDarkMode()" style="position: fixed; top: 20px; right: 20px; z-index: 999;">
+  <svg class="moon" viewBox="0 0 24 24" fill="none"><path d="M20.3 15.5a8.6 8.6 0 0 1-11.8-11 9 9 0 1 0 11.8 11Z" stroke="currentColor" stroke-width="1.9"/></svg>
+  <svg class="sun" viewBox="0 0 24 24" fill="none"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0-6v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M19 5l-2 2M7 17l-2 2" stroke="currentColor" stroke-width="1.8"/></svg>
+</button>
           </div>
-        </div>
-        <div class="headline">
-          <h1><span>VPN Config</span><br>lifetime access.</h1>
-          <p>WS memakai bug pilihanmu; WC memasang domain terpilih pada host dan SNI.</p>
-        </div>
-        <div class="info">
-          <div class="info-box">
-            <span class="label">PILIH PROTOKOL</span>
-            <div class="tags"><span class="tag">VLESS</span><span class="tag">TROJAN</span><span class="tag">SS</span><span class="tag">WS</span><span class="tag">WC</span></div>
-          </div>
-          <div class="info-box transport"><span class="label">TRANSPORT</span><strong>WS + TLS + WC</strong></div>
-        </div>
-        <div class="path">
-          <svg viewBox="0 0 24 24" fill="none"><path d="M9 17 4 12l5-5m6 0 5 5-5 5M14 4 10 20" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>
-          <div><b>CUSTOM PATH</b><p>Otomatis: 
-          <br>
-    1.<code>/Free-VPN-CF-Geo-Project/IP=PORT</code>
-    <br>
-    2.<code>/Free-VPN-CF-Geo-Project/IP=PORT</code></p></div>
-        </div>
         
         <div class="w-full h-12 px-2 py-1 flex items-center space-x-2 shadow-lg border mt-2"
         style="border-width: 1px; border-style: solid; border-color: rgba(32,227,178,.2); height: 55px; border-radius: 10px; background: rgba(32,227,178,.07); overflow-x: auto; overflow-y: hidden;">
@@ -4463,26 +4442,7 @@ function buildCountryFlag(page) {
             Showing ${startIndex + 1} to ${endIndex} of ${totalFilteredConfigs} Proxies
           </div>
       </section>
-
-      <footer style="margin-top: 20px;">
-        <div class="content">
-            <div class="social-icons">
-                <a href="https://github.com/jaka1m" class="social-icon github">
-                    <i class="fab fa-github"></i>
-                </a>
-                <a href="https://wa.me/6282276031731" class="social-icon whatsapp">
-                    <i class="fab fa-whatsapp"></i>
-                </a>
-                <a href="https://t.me/sampiiiiu" class="social-icon telegram">
-                    <i class="fab fa-telegram-plane"></i>
-                </a>
-            </div>
-            <div class="copyright-fire" style="text-align: center;">
-                <p style="margin: 0; font-size: 0.9rem; font-weight: 600;">© GEO PROJECT</p>
-            </div>
-        </div>
-    </footer>
-    </main>
+</main>
 
     <div class="toast" id="toast"></div>
         </div>
