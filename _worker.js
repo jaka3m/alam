@@ -4079,12 +4079,29 @@ function buildCountryFlag(page) {
       .metric{font-size:10px}
     }
     
+    .sticky-pagination-container {
+      position: sticky;
+      bottom: 0;
+      background: rgba(15, 23, 42, 0.85); /* fallback */
+      padding: 10px 0;
+      z-index: 50;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      margin: 0 -12px -12px -12px;
+      border-radius: 0 0 24px 24px;
+    }
+    html[data-theme="light"] .sticky-pagination-container {
+      background: rgba(255, 255, 255, 0.85);
+      border-top: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
     .quantum-pagination {
       display: flex;
       justify-content: center;
       align-items: center;
       gap: 6px;
-      margin-top: 20px;
+      margin-top: 0px;
       flex-wrap: wrap;
     }
     .quantum-pagination a {
@@ -4437,15 +4454,17 @@ function buildCountryFlag(page) {
                     }
                 });
                 </script>
-                <div class="quantum-pagination">
-                ${prevPage}
-                ${paginationButtons.join('')}
-                ${nextPage}
-            </div>
-           
-          <div style="text-align: center; margin-top: 16px; color: var(--muted); font-size: 11px;">
-            Showing ${startIndex + 1} to ${endIndex} of ${totalFilteredConfigs} Proxies
-          </div>
+                <div class="sticky-pagination-container">
+                    <div class="quantum-pagination">
+                        ${prevPage}
+                        ${paginationButtons.join('')}
+                        ${nextPage}
+                    </div>
+
+                    <div style="text-align: center; margin-top: 16px; color: var(--muted); font-size: 11px;">
+                        Showing ${startIndex + 1} to ${endIndex} of ${totalFilteredConfigs} Proxies
+                    </div>
+                </div>
       </section>
 </main>
 

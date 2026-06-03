@@ -3993,12 +3993,29 @@ async function handleWebRequest(request, env, config) {
       .metric{font-size:10px}
     }
 
+    .sticky-pagination-container {
+      position: sticky;
+      bottom: 0;
+      background: rgba(15, 23, 42, 0.85); /* fallback */
+      padding: 10px 0;
+      z-index: 50;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      margin: 0 -12px -12px -12px;
+      border-radius: 0 0 24px 24px;
+    }
+    html[data-theme="light"] .sticky-pagination-container {
+      background: rgba(255, 255, 255, 0.85);
+      border-top: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
     .quantum-pagination {
       display: flex;
       justify-content: center;
       align-items: center;
       gap: 6px;
-      margin-top: 20px;
+      margin-top: 0px;
       flex-wrap: wrap;
     }
     .quantum-pagination a {
@@ -4351,15 +4368,17 @@ async function handleWebRequest(request, env, config) {
                     }
                 });
                 <\/script>
-                <div class="quantum-pagination">
-                ${prevPage}
-                ${paginationButtons.join("")}
-                ${nextPage}
-            </div>
+                <div class="sticky-pagination-container">
+                    <div class="quantum-pagination">
+                        ${prevPage}
+                        ${paginationButtons.join("")}
+                        ${nextPage}
+                    </div>
 
-          <div style="text-align: center; margin-top: 16px; color: var(--muted); font-size: 11px;">
-            Showing ${startIndex + 1} to ${endIndex} of ${totalFilteredConfigs} Proxies
-          </div>
+                    <div style="text-align: center; margin-top: 16px; color: var(--muted); font-size: 11px;">
+                        Showing ${startIndex + 1} to ${endIndex} of ${totalFilteredConfigs} Proxies
+                    </div>
+                </div>
       </section>
 </main>
 
@@ -6860,7 +6879,7 @@ var jsonError = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx)
 }, "jsonError");
 var middleware_miniflare3_json_error_default = jsonError;
 
-// .wrangler/tmp/bundle-vAJ88L/middleware-insertion-facade.js
+// .wrangler/tmp/bundle-9mD9Je/middleware-insertion-facade.js
 var __INTERNAL_WRANGLER_MIDDLEWARE__ = [
   middleware_ensure_req_body_drained_default,
   middleware_miniflare3_json_error_default
@@ -6892,7 +6911,7 @@ function __facade_invoke__(request, env, ctx, dispatch, finalMiddleware) {
 }
 __name(__facade_invoke__, "__facade_invoke__");
 
-// .wrangler/tmp/bundle-vAJ88L/middleware-loader.entry.ts
+// .wrangler/tmp/bundle-9mD9Je/middleware-loader.entry.ts
 var __Facade_ScheduledController__ = class ___Facade_ScheduledController__ {
   constructor(scheduledTime, cron, noRetry) {
     this.scheduledTime = scheduledTime;

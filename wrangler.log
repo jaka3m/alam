@@ -1,12 +1,12 @@
 
  ⛅️ wrangler 4.97.0
 ───────────────────
-
-Cloudflare collects anonymous telemetry about your usage of Wrangler. Learn more at https://github.com/cloudflare/workers-sdk/tree/main/packages/wrangler/telemetry.md
 ⎔ Starting local server...
 [wrangler:info] Ready on http://localhost:8787
 Fetched 10294 proxies from R2.
-[wrangler:info] GET / 200 OK (943ms)
-[wrangler:info] HEAD / 200 OK (539ms)
-[wrangler:info] GET / 200 OK (509ms)
-[wrangler:info] GET /geo-ip 200 OK (775ms)
+[wrangler:info] HEAD / 200 OK (962ms)
+[wrangler:info] GET / 200 OK (478ms)
+[wrangler:info] GET /geo-ip 200 OK (9087ms)
+[31m✘ [41;31m[[41;97mERROR[41;31m][0m [1mkj::getCaughtExceptionAsKj() = kj/async-io-unix.c++:186: disconnected: ::write(fd, buffer.begin(), buffer.size()): Broken pipe[0m
+
+  stack: /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/node_modules/@cloudflare/workerd-linux-64/bin/workerd@5295871 /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/node_modules/@cloudflare/workerd-linux-64/bin/workerd@5296521 /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/node_modules/@cloudflare/workerd-linux-64/bin/workerd@373ca9f /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/node_modules/@cloudflare/workerd-linux-64/bin/workerd@373cce5 /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/node_modules/@cloudflare/workerd-linux-64/bin/workerd@5258df8 /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/node_modules/@cloudflare/workerd-linux-64/bin/workerd@3795223 /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/node_modules/@cloudflare/workerd-linux-64/bin/workerd@3798d77 /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/node_modules/@cloudflare/workerd-linux-64/bin/workerd@3799108 /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/node_modules/@cloudflare/workerd-linux-64/bin/workerd@2e311d0 /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/node_modules/@cloudflare/workerd-linux-64/bin/workerd@2011f87
