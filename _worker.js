@@ -120,13 +120,6 @@ async function ensureCfConfig(config) {
   }
 }
 
-const namaWeb = 'GEO PROJECT'
-const telegrambot = 'https://t.me/VLTRSSbot'
-const channelku = 'https://t.me/testikuy_mang'
-const telegramku = 'https://geoproject.biz.id/circle-flags/telegram.png'
-const whatsappku = 'https://geoproject.biz.id/circle-flags/whatsapp.png'
-const ope = 'https://geoproject.biz.id/circle-flags/options.png'
-
 // Variables
 const wildcards = [];
 // CloudflareApi Class
@@ -4079,12 +4072,29 @@ function buildCountryFlag(page) {
       .metric{font-size:10px}
     }
     
+    .sticky-pagination-container {
+      position: sticky;
+      bottom: 0;
+      background: rgba(15, 23, 42, 0.85); /* fallback */
+      padding: 10px 0;
+      z-index: 50;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      margin: 0 -12px -12px -12px;
+      border-radius: 0 0 24px 24px;
+    }
+    html[data-theme="light"] .sticky-pagination-container {
+      background: rgba(255, 255, 255, 0.85);
+      border-top: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
     .quantum-pagination {
       display: flex;
       justify-content: center;
       align-items: center;
       gap: 6px;
-      margin-top: 20px;
+      margin-top: 0px;
       flex-wrap: wrap;
     }
     .quantum-pagination a {
@@ -4106,6 +4116,40 @@ function buildCountryFlag(page) {
     }
     .quantum-pagination a:hover {
       background: rgba(32,227,178,.15);
+    }
+    .quantum-select-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      margin-bottom: 10px;
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid var(--line2);
+    }
+    .quantum-select {
+      height: 30px;
+      padding: 0 10px;
+      border-radius: 8px;
+      color: var(--mint);
+      font-size: 10px;
+      font-weight: 850;
+      letter-spacing: .07em;
+      background: rgba(32,227,178,.07);
+      border: 1px solid rgba(32,227,178,.19);
+      transition: all 0.2s;
+      outline: none;
+      cursor: pointer;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+    }
+    .quantum-select:hover {
+      background: rgba(32,227,178,.15);
+    }
+    .quantum-select option {
+      background: var(--bg);
+      color: var(--text);
     }
     .quantum-pagination a.active {
       color: #d3c5ff;
@@ -4299,6 +4343,7 @@ function buildCountryFlag(page) {
    <body>
     ${SIDEBAR_COMPONENT}
     <main class="app">
+    <br><br>
       <header class="hero">
         <div class="top">
           <div class="brand">
@@ -4307,7 +4352,15 @@ function buildCountryFlag(page) {
             </div>
             <div><div class="micro">GEOVPN</div><div class="brand-title">Config Lifetime</div></div>
           </div>
-          
+          <button class="theme p-2.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2"
+                  id="themeToggle" type="button" aria-label="Tema" onclick="toggleDarkMode()">
+            <svg class="moon w-5 h-5" viewBox="0 0 24 24" fill="none">
+              <path d="M20.3 15.5a8.6 8.6 0 0 1-11.8-11 9 9 0 1 0 11.8 11Z" stroke="currentColor" stroke-width="1.9"/>
+            </svg>
+            <svg class="sun w-5 h-5" viewBox="0 0 24 24" fill="none">
+              <path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0-6v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M19 5l-2 2M7 17l-2 2" stroke="currentColor" stroke-width="1.8"/>
+            </svg>
+          </button>
         </div>
         <div class="headline">
           </div>
@@ -4318,27 +4371,17 @@ function buildCountryFlag(page) {
           </div>
           <div class="info-box transport"><span class="label">TRANSPORT</span><strong>WS + TLS + WC</strong></div>
         </div>
-        <div class="flex flex-nowrap items-center gap-2 bg-black/90 backdrop-blur-sm rounded-xl shadow-lg p-3 border border-blue-500/50">
+        <div class="quantum-select-container">
   <select id="rootDomain" name="rootDomain" onchange="onRootDomainChange(event)" 
-          class="px-3 py-2 rounded-lg bg-gradient-to-r from-blue-900 to-indigo-900 border border-blue-500 text-white text-sm font-medium cursor-pointer hover:from-blue-800 hover:to-indigo-800 hover:border-blue-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent w-full sm:w-auto">
-    ${(config.ZONES || []).map(z => `<option value="${z.name}" ${config.ROOT_DOMAIN === z.name ? 'selected' : ''} class="text-white bg-black">${z.name}</option>`).join('')}
+          class="quantum-select w-full sm:w-auto">
+    ${(config.ZONES || []).map(z => `<option value="${z.name}" ${config.ROOT_DOMAIN === z.name ? 'selected' : ''}>${z.name}</option>`).join('')}
   </select>
 
   <select id="wildcard" name="wildcard" onchange="onWildcardChange(event)" 
-          class="px-3 py-2 rounded-lg bg-gradient-to-r from-blue-900 to-indigo-900 border border-blue-500 text-white text-sm font-medium cursor-pointer hover:from-blue-800 hover:to-indigo-800 hover:border-blue-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent w-full sm:w-auto">
-    <option value="" ${!selectedWildcard ? 'selected' : ''} class="text-white bg-black">No Wildcard</option>
-    ${allWildcards.map(w => `<option value="${w}" ${selectedWildcard === w ? 'selected' : ''} class="text-white bg-black">${w}</option>`).join('')}
+          class="quantum-select w-full sm:w-auto">
+    <option value="" ${!selectedWildcard ? 'selected' : ''}>No Wildcard</option>
+    ${allWildcards.map(w => `<option value="${w}" ${selectedWildcard === w ? 'selected' : ''}>${w}</option>`).join('')}
   </select>
-
-  <button class="theme p-2.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2" 
-          id="themeToggle" type="button" aria-label="Tema" onclick="toggleDarkMode()">
-    <svg class="moon w-5 h-5" viewBox="0 0 24 24" fill="none">
-      <path d="M20.3 15.5a8.6 8.6 0 0 1-11.8-11 9 9 0 1 0 11.8 11Z" stroke="currentColor" stroke-width="1.9"/>
-    </svg>
-    <svg class="sun w-5 h-5" viewBox="0 0 24 24" fill="none">
-      <path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0-6v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M19 5l-2 2M7 17l-2 2" stroke="currentColor" stroke-width="1.8"/>
-    </svg>
-  </button>
 </div>
         
         <div class="w-full h-12 px-2 py-1 flex items-center space-x-2 shadow-lg border mt-2"
@@ -4439,15 +4482,17 @@ function buildCountryFlag(page) {
                     }
                 });
                 </script>
-                <div class="quantum-pagination">
-                ${prevPage}
-                ${paginationButtons.join('')}
-                ${nextPage}
-            </div>
-           
-          <div style="text-align: center; margin-top: 16px; color: var(--muted); font-size: 11px;">
-            Showing ${startIndex + 1} to ${endIndex} of ${totalFilteredConfigs} Proxies
-          </div>
+                <div class="sticky-pagination-container">
+                    <div class="quantum-pagination">
+                        ${prevPage}
+                        ${paginationButtons.join('')}
+                        ${nextPage}
+                    </div>
+
+                    <div style="text-align: center; margin-top: 16px; color: var(--muted); font-size: 11px;">
+                        Showing ${startIndex + 1} to ${endIndex} of ${totalFilteredConfigs} Proxies
+                    </div>
+                </div>
       </section>
 </main>
 
