@@ -4124,6 +4124,40 @@ function buildCountryFlag(page) {
     .quantum-pagination a:hover {
       background: rgba(32,227,178,.15);
     }
+    .quantum-select-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      margin-bottom: 10px;
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid var(--line2);
+    }
+    .quantum-select {
+      height: 30px;
+      padding: 0 10px;
+      border-radius: 8px;
+      color: var(--mint);
+      font-size: 10px;
+      font-weight: 850;
+      letter-spacing: .07em;
+      background: rgba(32,227,178,.07);
+      border: 1px solid rgba(32,227,178,.19);
+      transition: all 0.2s;
+      outline: none;
+      cursor: pointer;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+    }
+    .quantum-select:hover {
+      background: rgba(32,227,178,.15);
+    }
+    .quantum-select option {
+      background: var(--bg);
+      color: var(--text);
+    }
     .quantum-pagination a.active {
       color: #d3c5ff;
       background: rgba(164,130,255,.15);
@@ -4343,16 +4377,16 @@ function buildCountryFlag(page) {
           </div>
           <div class="info-box transport"><span class="label">TRANSPORT</span><strong>WS + TLS + WC</strong></div>
         </div>
-        <div class="flex flex-nowrap items-center gap-2 bg-black/90 backdrop-blur-sm rounded-xl shadow-lg p-3 border border-blue-500/50">
+        <div class="quantum-select-container">
   <select id="rootDomain" name="rootDomain" onchange="onRootDomainChange(event)" 
-          class="px-3 py-2 rounded-lg bg-gradient-to-r from-blue-900 to-indigo-900 border border-blue-500 text-white text-sm font-medium cursor-pointer hover:from-blue-800 hover:to-indigo-800 hover:border-blue-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent w-full sm:w-auto">
-    ${(config.ZONES || []).map(z => `<option value="${z.name}" ${config.ROOT_DOMAIN === z.name ? 'selected' : ''} class="text-white bg-black">${z.name}</option>`).join('')}
+          class="quantum-select w-full sm:w-auto">
+    ${(config.ZONES || []).map(z => `<option value="${z.name}" ${config.ROOT_DOMAIN === z.name ? 'selected' : ''}>${z.name}</option>`).join('')}
   </select>
 
   <select id="wildcard" name="wildcard" onchange="onWildcardChange(event)" 
-          class="px-3 py-2 rounded-lg bg-gradient-to-r from-blue-900 to-indigo-900 border border-blue-500 text-white text-sm font-medium cursor-pointer hover:from-blue-800 hover:to-indigo-800 hover:border-blue-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent w-full sm:w-auto">
-    <option value="" ${!selectedWildcard ? 'selected' : ''} class="text-white bg-black">No Wildcard</option>
-    ${allWildcards.map(w => `<option value="${w}" ${selectedWildcard === w ? 'selected' : ''} class="text-white bg-black">${w}</option>`).join('')}
+          class="quantum-select w-full sm:w-auto">
+    <option value="" ${!selectedWildcard ? 'selected' : ''}>No Wildcard</option>
+    ${allWildcards.map(w => `<option value="${w}" ${selectedWildcard === w ? 'selected' : ''}>${w}</option>`).join('')}
   </select>
 </div>
         
