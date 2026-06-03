@@ -3695,9 +3695,9 @@ function buildCountryFlag(page) {
                     <div class="chooser-inner">
                         <div class="choose-label">PILIH PROTOKOL</div>
                         <div class="protocol-row">
-                            <button class="copy" onclick='showOptions("VLess", "${vlessRibet.replace(/"/g, "&quot;")}", "${vlessSimple.replace(/"/g, "&quot;")}", ${JSON.stringify(config).replace(/'/g, "&#39;")})'>VLESS</button>
-                            <button class="copy" onclick='showOptions("Trojan", "${trojanRibet.replace(/"/g, "&quot;")}", "${trojanSimple.replace(/"/g, "&quot;")}", ${JSON.stringify(config).replace(/'/g, "&#39;")})'>TROJAN</button>
-                            <button class="copy" onclick='showOptions("SS", "${ssRibet.replace(/"/g, "&quot;")}", "${ssSimple.replace(/"/g, "&quot;")}", ${JSON.stringify(config).replace(/'/g, "&#39;")})'>SS</button>
+                            <button class="copy" onclick='window.showOptions("VLess", "${vlessRibet.replace(/"/g, "&quot;")}", "${vlessSimple.replace(/"/g, "&quot;")}", ${JSON.stringify(config).replace(/\x27/g, "&#39;")})'>VLESS</button>
+                            <button class="copy" onclick='window.showOptions("Trojan", "${trojanRibet.replace(/"/g, "&quot;")}", "${trojanSimple.replace(/"/g, "&quot;")}", ${JSON.stringify(config).replace(/\x27/g, "&#39;")})'>TROJAN</button>
+                            <button class="copy" onclick='window.showOptions("SS", "${ssRibet.replace(/"/g, "&quot;")}", "${ssSimple.replace(/"/g, "&quot;")}", ${JSON.stringify(config).replace(/\x27/g, "&#39;")})'>SS</button>
                         </div>
                     </div>
                 </div>
@@ -3705,58 +3705,108 @@ function buildCountryFlag(page) {
         </article>
         `;
     });
-    const showOptionsScript = `
+                    const showOptionsScript = `
+    <style>
+        #custom-options-modal-backdrop {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            z-index: 9999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        #custom-options-modal-backdrop.show {
+            display: flex;
+            opacity: 1;
+        }
+        #custom-options-modal {
+            width: 270px;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+        }
+    </style>
+    <div id="custom-options-modal-backdrop" onclick="closeOptionsModal(event)">
+        <div id="custom-options-modal" onclick="event.stopPropagation()">
+            <div id="custom-options-modal-content"></div>
+        </div>
+    </div>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
     <script>
         function showOptions(type, ribet, simple, config) {
-            Swal.fire({
-                width: '270px',
-                html: \`
-                    <div class="px-1 py-1 text-center">
-                    <span class="flag-circle flag-icon flag-icon-\${config.countryCode.toLowerCase()}" 
-                    style="width: 60px; height: 60px; border-radius: 50%; display: inline-block;">
-                    </span>
-                    </div>
-                    <div class="mt-3">
-                    <div class="h-px" style="background: var(--border-color); box-shadow: 0 1px 2px var(--shadow-color);"></div>
-                    <div class="text-xs">IP : \${config.ip}</div>
-                    <div class="text-xs">ISP : \${config.isp}</div>
-                    <div class="text-xs">Country : \${config.countryCode}</div>
-                    <div class="h-px" style="background: var(--border-color); box-shadow: 0 1px 2px var(--shadow-color);"></div>
-                    <div class="mt-3">
-                    <button class="quantum-btn w-full py-2 px-3 text-xs rounded-md font-semibold" onclick="copy('\${simple}')">COPY PATH COUNTRY</button>
-                    <div class="mt-3">
-                    <button class="quantum-btn w-full py-2 px-3 text-xs rounded-md font-semibold" onclick="copy('\${ribet}')">COPY PATH IP PORT</button>
-                    <div class="mt-3">
-                        <button style="background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); width: 100%;" class="py-2 px-3 text-xs rounded-md font-semibold transition-all hover:bg-red-500/20" onclick="Swal.close()">Close</button>
-                    </div>
-                \`,
-                showCloseButton: false,
-                showConfirmButton: false,
-                background: 'var(--bg-card)',
-                color: 'var(--text-primary)',
-                customClass: {
-                    popup: 'rounded-popup',
-                    closeButton: 'close-btn'
-                },
-                position: 'center', 
-                showClass: {
-                    popup: 'animate__animated animate__fadeInLeft' 
-                },
-                hideClass: {
-                    popup: 'animate__animated animate__fadeOutRight' 
-                },
-                didOpen: () => {
-                    const popup = document.querySelector('.swal2-popup');
-                    popup.style.animationDuration = '0.3s'; 
-                },
-                didClose: () => {
-                    const popup = document.querySelector('.swal2-popup');
-                    popup.style.animationDuration = '0.3s'; 
-                }
-            });
+            const content = document.getElementById('custom-options-modal-content');
+
+            const countryClass = config.countryCode ? config.countryCode.toLowerCase() : '';
+
+            // Clean up strings to avoid breaking the innerHTML when placed inside 'copy("...")'
+            const cSimple = simple ? simple.replace(/\\"/g, '&quot;') : '';
+            const cRibet = ribet ? ribet.replace(/\\"/g, '&quot;') : '';
+
+            content.innerHTML = \`<div class="px-1 py-1 text-center">
+                <span class="flag-circle flag-icon flag-icon-\${countryClass}"
+                style="width: 60px; height: 60px; border-radius: 50%; display: inline-block;">
+                </span>
+                </div>
+                <div class="mt-3">
+                <div class="h-px" style="background: var(--border-color); box-shadow: 0 1px 2px var(--shadow-color);"></div>
+                <div class="text-xs mt-2 mb-1">IP : \${config.ip}</div>
+                <div class="text-xs mb-1">ISP : \${config.isp}</div>
+                <div class="text-xs mb-2">Country : \${config.countryCode}</div>
+                <div class="h-px" style="background: var(--border-color); box-shadow: 0 1px 2px var(--shadow-color);"></div>
+                <div class="mt-3">
+                <button id="btn-copy-simple" class="quantum-btn w-full py-2 px-3 text-xs rounded-md font-semibold">COPY PATH COUNTRY</button>
+                </div>
+                <div class="mt-3">
+                <button id="btn-copy-ribet" class="quantum-btn w-full py-2 px-3 text-xs rounded-md font-semibold">COPY PATH IP PORT</button>
+                </div>
+                <div class="mt-3">
+                <button style="background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); width: 100%;" class="py-2 px-3 text-xs rounded-md font-semibold transition-all hover:bg-red-500/20" onclick="closeOptionsModal()">Close</button>
+                </div>
+                </div>\`;
+
+            document.getElementById('btn-copy-simple').onclick = function() { window.copy(cSimple); };
+            document.getElementById('btn-copy-ribet').onclick = function() { window.copy(cRibet); };
+
+            const backdrop = document.getElementById('custom-options-modal-backdrop');
+            const modal = document.getElementById('custom-options-modal');
+
+            backdrop.style.display = 'flex';
+            // trigger reflow
+            void backdrop.offsetWidth;
+
+            backdrop.classList.add('show');
+
+            modal.className = 'animate__animated animate__fadeInLeft';
+            modal.style.animationDuration = '0.3s';
+            modal.style.display = 'block';
         }
-    <\/script>
+
+        function closeOptionsModal(event) {
+            if (event && event.target.id !== 'custom-options-modal-backdrop') {
+                return; // Only close if clicking backdrop directly
+            }
+
+            const backdrop = document.getElementById('custom-options-modal-backdrop');
+            const modal = document.getElementById('custom-options-modal');
+
+            modal.className = 'animate__animated animate__fadeOutRight';
+
+            setTimeout(() => {
+                backdrop.classList.remove('show');
+                setTimeout(() => {
+                    backdrop.style.display = 'none';
+                    modal.style.display = '';
+                }, 300); // Wait for backdrop fade out
+            }, 300); // Wait for modal fade out
+        }
+    </script>
     `;
     const paginationButtons = [];
     const pageRange = 2;
@@ -4079,29 +4129,12 @@ function buildCountryFlag(page) {
       .metric{font-size:10px}
     }
     
-    .sticky-pagination-container {
-      position: sticky;
-      bottom: 0;
-      background: rgba(15, 23, 42, 0.85); /* fallback */
-      padding: 10px 0;
-      z-index: 50;
-      border-top: 1px solid rgba(255, 255, 255, 0.05);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      margin: 0 -12px -12px -12px;
-      border-radius: 0 0 24px 24px;
-    }
-    html[data-theme="light"] .sticky-pagination-container {
-      background: rgba(255, 255, 255, 0.85);
-      border-top: 1px solid rgba(0, 0, 0, 0.05);
-    }
-
     .quantum-pagination {
       display: flex;
       justify-content: center;
       align-items: center;
       gap: 6px;
-      margin-top: 0px;
+      margin-top: 20px;
       flex-wrap: wrap;
     }
     .quantum-pagination a {
@@ -4123,40 +4156,6 @@ function buildCountryFlag(page) {
     }
     .quantum-pagination a:hover {
       background: rgba(32,227,178,.15);
-    }
-    .quantum-select-container {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-top: 10px;
-      margin-bottom: 10px;
-      padding: 10px;
-      border-radius: 12px;
-      border: 1px solid var(--line2);
-    }
-    .quantum-select {
-      height: 30px;
-      padding: 0 10px;
-      border-radius: 8px;
-      color: var(--mint);
-      font-size: 10px;
-      font-weight: 850;
-      letter-spacing: .07em;
-      background: rgba(32,227,178,.07);
-      border: 1px solid rgba(32,227,178,.19);
-      transition: all 0.2s;
-      outline: none;
-      cursor: pointer;
-      -webkit-appearance: none;
-      -moz-appearance: none;
-      appearance: none;
-    }
-    .quantum-select:hover {
-      background: rgba(32,227,178,.15);
-    }
-    .quantum-select option {
-      background: var(--bg);
-      color: var(--text);
     }
     .quantum-pagination a.active {
       color: #d3c5ff;
@@ -4358,7 +4357,7 @@ function buildCountryFlag(page) {
             </div>
             <div><div class="micro">GEOVPN</div><div class="brand-title">Config Lifetime</div></div>
           </div>
-          <button class="theme p-2.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2"
+          <button class="theme p-2.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 absolute right-5 top-5 z-50"
                   id="themeToggle" type="button" aria-label="Tema" onclick="toggleDarkMode()">
             <svg class="moon w-5 h-5" viewBox="0 0 24 24" fill="none">
               <path d="M20.3 15.5a8.6 8.6 0 0 1-11.8-11 9 9 0 1 0 11.8 11Z" stroke="currentColor" stroke-width="1.9"/>
@@ -4377,17 +4376,19 @@ function buildCountryFlag(page) {
           </div>
           <div class="info-box transport"><span class="label">TRANSPORT</span><strong>WS + TLS + WC</strong></div>
         </div>
-        <div class="quantum-select-container">
+        <div class="flex flex-nowrap items-center gap-2 bg-black/90 backdrop-blur-sm rounded-xl shadow-lg p-3 border border-blue-500/50">
   <select id="rootDomain" name="rootDomain" onchange="onRootDomainChange(event)" 
-          class="quantum-select w-full sm:w-auto">
-    ${(config.ZONES || []).map(z => `<option value="${z.name}" ${config.ROOT_DOMAIN === z.name ? 'selected' : ''}>${z.name}</option>`).join('')}
+          class="px-3 py-2 rounded-lg bg-gradient-to-r from-blue-900 to-indigo-900 border border-blue-500 text-white text-sm font-medium cursor-pointer hover:from-blue-800 hover:to-indigo-800 hover:border-blue-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent w-full sm:w-auto">
+    ${(config.ZONES || []).map(z => `<option value="${z.name}" ${config.ROOT_DOMAIN === z.name ? 'selected' : ''} class="text-white bg-black">${z.name}</option>`).join('')}
   </select>
 
   <select id="wildcard" name="wildcard" onchange="onWildcardChange(event)" 
-          class="quantum-select w-full sm:w-auto">
-    <option value="" ${!selectedWildcard ? 'selected' : ''}>No Wildcard</option>
-    ${allWildcards.map(w => `<option value="${w}" ${selectedWildcard === w ? 'selected' : ''}>${w}</option>`).join('')}
+          class="px-3 py-2 rounded-lg bg-gradient-to-r from-blue-900 to-indigo-900 border border-blue-500 text-white text-sm font-medium cursor-pointer hover:from-blue-800 hover:to-indigo-800 hover:border-blue-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent w-full sm:w-auto">
+    <option value="" ${!selectedWildcard ? 'selected' : ''} class="text-white bg-black">No Wildcard</option>
+    ${allWildcards.map(w => `<option value="${w}" ${selectedWildcard === w ? 'selected' : ''} class="text-white bg-black">${w}</option>`).join('')}
   </select>
+
+
 </div>
         
         <div class="w-full h-12 px-2 py-1 flex items-center space-x-2 shadow-lg border mt-2"
@@ -4488,17 +4489,15 @@ function buildCountryFlag(page) {
                     }
                 });
                 </script>
-                <div class="sticky-pagination-container">
-                    <div class="quantum-pagination">
-                        ${prevPage}
-                        ${paginationButtons.join('')}
-                        ${nextPage}
-                    </div>
+                <div class="quantum-pagination">
+                ${prevPage}
+                ${paginationButtons.join('')}
+                ${nextPage}
+            </div>
 
-                    <div style="text-align: center; margin-top: 16px; color: var(--muted); font-size: 11px;">
-                        Showing ${startIndex + 1} to ${endIndex} of ${totalFilteredConfigs} Proxies
-                    </div>
-                </div>
+          <div style="text-align: center; margin-top: 16px; color: var(--muted); font-size: 11px;">
+            Showing ${startIndex + 1} to ${endIndex} of ${totalFilteredConfigs} Proxies
+          </div>
       </section>
 </main>
 
