@@ -166,8 +166,8 @@ var CloudflareApi = class {
       return null;
     }
   }
-  async registerDomain(domain) {
-    console.log(`[Register] Domain input: ${domain}`);
+  async registerDomain(domain, multi = false) {
+    console.log(`[Register] Domain input: ${domain}, multi: ${multi}`);
     try {
       await ensureCfConfig(this.config);
       if (!cachedAccountId) {
@@ -176,7 +176,18 @@ var CloudflareApi = class {
       }
       domain = domain.toLowerCase().trim();
       let domainsToRegister = [];
-      if (domain === "@" || domain === "root") {
+      if (multi && domain !== "@" && domain !== "root") {
+        const availableZones = (this.config.ZONES || []).map((z) => z.name);
+        if (availableZones.length > 0) {
+          domainsToRegister = availableZones.map((zoneName) => {
+            const suffix = `.${zoneName}`;
+            return domain.endsWith(suffix) ? domain : domain + suffix;
+          });
+        } else if (this.config.ROOT_DOMAIN) {
+          const suffix = `.${this.config.ROOT_DOMAIN}`;
+          domainsToRegister = [domain.endsWith(suffix) ? domain : domain + suffix];
+        }
+      } else if (domain === "@" || domain === "root") {
         domainsToRegister = (this.config.ZONES || []).map((z) => z.name);
         if (domainsToRegister.length === 0 && this.config.ROOT_DOMAIN) {
           domainsToRegister = [this.config.ROOT_DOMAIN];
@@ -699,8 +710,9 @@ var SIDEBAR_COMPONENT = `
 
               <!-- Tabs -->
               <div class="flex border-b border-white/10">
-                  <button @click="wildcardTab = 'list'" :class="{'border-blue-500 text-blue-400': wildcardTab === 'list', 'border-transparent text-gray-400': wildcardTab !== 'list'}" class="flex-1 py-2 font-semibold border-b-2 transition-all">List Wildcard</button>
-                  <button @click="wildcardTab = 'add'" :class="{'border-blue-500 text-blue-400': wildcardTab === 'add', 'border-transparent text-gray-400': wildcardTab !== 'add'}" class="flex-1 py-2 font-semibold border-b-2 transition-all">Add Wildcards</button>
+                  <button @click="wildcardTab = 'list'" :class="{'border-blue-500 text-blue-400': wildcardTab === 'list', 'border-transparent text-gray-400': wildcardTab !== 'list'}" class="flex-1 py-2 font-semibold border-b-2 transition-all text-xs sm:text-sm">List Wildcard</button>
+                  <button @click="wildcardTab = 'add'" :class="{'border-blue-500 text-blue-400': wildcardTab === 'add', 'border-transparent text-gray-400': wildcardTab !== 'add'}" class="flex-1 py-2 font-semibold border-b-2 transition-all text-xs sm:text-sm">Add Wildcards</button>
+                  <button @click="wildcardTab = 'multi'" :class="{'border-blue-500 text-blue-400': wildcardTab === 'multi', 'border-transparent text-gray-400': wildcardTab !== 'multi'}" class="flex-1 py-2 font-semibold border-b-2 transition-all text-xs sm:text-sm">Add Multi</button>
               </div>
 
               <!-- Tab Content: List -->
@@ -746,6 +758,24 @@ var SIDEBAR_COMPONENT = `
                           <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                       </svg>
                       <span class="font-semibold">Tambah Domain Baru</span>
+                  </button>
+              </div>
+
+              <!-- Tab Content: Multi -->
+              <div x-show="wildcardTab === 'multi'" class="flex flex-col gap-4 py-4">
+                  <div class="flex flex-col gap-2">
+                      <label class="text-sm font-semibold text-gray-400">Multi Prefix Domain</label>
+                      <input id="new-multi-domain-input"
+                             type="text"
+                             placeholder="Masukkan prefix (semua domain akan ditambahkan prefix ini)"
+                             class="w-full px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-gray-800 border border-gray-700 text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"/>
+                  </div>
+                  <button id="add-multi-domain-button" onclick="registerMultiDomain()"
+                          class="w-full py-3 rounded-xl bg-purple-600 hover:bg-purple-500 flex justify-center items-center text-white transition-all shadow-lg shadow-purple-600/20 active:scale-95 gap-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                      <span class="font-semibold">Tambah Multi Domain</span>
                   </button>
               </div>
 
@@ -864,11 +894,15 @@ var SIDEBAR_COMPONENT = `
             const loading = document.getElementById('wildcard-loading');
             const newDomainInput = document.getElementById('new-domain-input');
             const addDomainButton = document.getElementById('add-domain-button');
+            const newMultiDomainInput = document.getElementById('new-multi-domain-input');
+            const addMultiDomainButton = document.getElementById('add-multi-domain-button');
             const progressFill = document.getElementById('popupProgress');
             if (isLoading) {
                 loading.classList.remove('hidden');
                 newDomainInput.disabled = true;
                 addDomainButton.disabled = true;
+                if(newMultiDomainInput) newMultiDomainInput.disabled = true;
+                if(addMultiDomainButton) addMultiDomainButton.disabled = true;
 
                 progressFill.style.width = '0%';
                 setTimeout(() => {
@@ -884,6 +918,48 @@ var SIDEBAR_COMPONENT = `
                 }, 500);
                 newDomainInput.disabled = false;
                 addDomainButton.disabled = false;
+                if(newMultiDomainInput) newMultiDomainInput.disabled = false;
+                if(addMultiDomainButton) addMultiDomainButton.disabled = false;
+            }
+        }
+
+        async function registerMultiDomain() {
+            const input = document.getElementById('new-multi-domain-input');
+            let domain = input.value.trim();
+            const Toast = Swal.mixin({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true
+            });
+
+            if (!domain) {
+                Toast.fire({ icon: 'warning', title: 'Harap masukkan prefix multi' });
+                return;
+            }
+            setLoadingState(true);
+            try {
+                const rootDomain = new URLSearchParams(window.location.search).get('rootDomain') || '';
+                const url = '/api/v1/domains' + (rootDomain ? '?rootDomain=' + encodeURIComponent(rootDomain) : '');
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ domain, multi: true }),
+                });
+                if (response.ok) {
+                    input.value = '';
+                    await loadDomains();
+                    Toast.fire({ icon: 'success', title: 'Multi Domain berhasil didaftarkan' });
+                } else {
+                    const errorText = await response.text();
+                    Toast.fire({ icon: 'error', title: 'Gagal mendaftar: ' + errorText });
+                }
+            } catch (error) {
+                console.error('Error mendaftarkan multi domain:', error);
+                Toast.fire({ icon: 'error', title: 'Terjadi kesalahan' });
+            } finally {
+                setLoadingState(false);
             }
         }
 
@@ -1038,11 +1114,11 @@ var worker_default = {
         }
         if (request.method === "POST") {
           try {
-            const { domain } = await request.json();
+            const { domain, multi } = await request.json();
             if (!domain) {
               return new Response("Domain is required", { status: 400 });
             }
-            const status = await cfApi.registerDomain(domain);
+            const status = await cfApi.registerDomain(domain, multi);
             return new Response(null, { status });
           } catch (e) {
             return new Response("Invalid JSON", { status: 400 });
