@@ -194,56 +194,65 @@ class CloudflareApi {
       }
 
       domain = domain.toLowerCase().trim();
-      let fullDomain;
+      let domainsToRegister = [];
       if (domain === '@' || domain === 'root') {
-          fullDomain = this.config.ROOT_DOMAIN;
+          // If @, register all available zones as root domains
+          domainsToRegister = (this.config.ZONES || []).map(z => z.name);
+          if (domainsToRegister.length === 0 && this.config.ROOT_DOMAIN) {
+              domainsToRegister = [this.config.ROOT_DOMAIN];
+          }
       } else {
           const suffix = `.${this.config.ROOT_DOMAIN}`;
-          fullDomain = domain.endsWith(suffix) ? domain : domain + suffix;
+          const fullDomain = domain.endsWith(suffix) ? domain : domain + suffix;
+          domainsToRegister = [fullDomain];
       }
 
-      console.log(`[Register] Processing: ${fullDomain}`);
-
-      // 1. Add to Pages Project
+      console.log(`[Register] Processing domains: ${domainsToRegister.join(', ')}`);
       const registeredDomains = await this.getDomainList();
-      const existing = registeredDomains.find(d => d.name === fullDomain);
 
-      if (existing) {
-        console.log(`[Register] Domain already in Pages project (Status: ${existing.status})`);
-      } else {
-        console.log(`[Register] Step 1: Adding to Pages project...`);
-        const url = `https://api.cloudflare.com/client/v4/accounts/${cachedAccountId}/pages/projects/${this.config.SERVICE_NAME}/domains`;
-        const res = await fetch(url, {
-          method: "POST",
-          body: JSON.stringify({ name: fullDomain }),
-          headers: this.headers,
-        });
-        const resJson = await res.json();
-        console.log(`[Register] Step 1 status: ${res.status}`, resJson);
+      for (const currentDomain of domainsToRegister) {
+          console.log(`[Register] Processing: ${currentDomain}`);
+          const existing = registeredDomains.find(d => d.name === currentDomain);
 
-        if (res.status !== 200 && res.status !== 201 && res.status !== 409) {
-          return res.status;
-        }
+          if (existing) {
+            console.log(`[Register] Domain already in Pages project (Status: ${existing.status})`);
+          } else {
+            console.log(`[Register] Step 1: Adding to Pages project...`);
+            const url = `https://api.cloudflare.com/client/v4/accounts/${cachedAccountId}/pages/projects/${this.config.SERVICE_NAME}/domains`;
+            const res = await fetch(url, {
+              method: "POST",
+              body: JSON.stringify({ name: currentDomain }),
+              headers: this.headers,
+            });
+            const resJson = await res.json();
+            console.log(`[Register] Step 1 status: ${res.status}`, resJson);
+
+            if (res.status !== 200 && res.status !== 201 && res.status !== 409) {
+               console.error(`[Register] Failed to add ${currentDomain} to pages project.`);
+            }
+          }
+
+          // 2. Create/Update DNS CNAME
+          console.log(`[Register] Step 2: Provisioning DNS record...`);
+          const targetContent = `${this.config.SERVICE_NAME}.pages.dev`;
+          const dnsId = await this.createDnsRecord(currentDomain, targetContent);
+          if (!dnsId) {
+            console.warn(`[Register] Step 2 warning: DNS record creation did not return an ID for ${currentDomain}`);
+          } else {
+            console.log(`[Register] Step 2 success: DNS Record ID ${dnsId} for ${currentDomain}`);
+          }
       }
 
-      // 2. Create/Update DNS CNAME
-      console.log(`[Register] Step 2: Provisioning DNS record...`);
-      const targetContent = `${this.config.SERVICE_NAME}.pages.dev`;
-      const dnsId = await this.createDnsRecord(fullDomain, targetContent);
-      if (!dnsId) {
-        console.warn(`[Register] Step 2 warning: DNS record creation did not return an ID`);
-      } else {
-        console.log(`[Register] Step 2 success: DNS Record ID ${dnsId}`);
-      }
-
-      // 3. Wait for propagation
+      // 3. Wait for propagation for all newly added domains
       console.log(`[Register] Step 3: Waiting 5 seconds for propagation...`);
       await new Promise(resolve => setTimeout(resolve, 5000));
 
-      // 4. Trigger Re-validation (PATCH)
-      console.log(`[Register] Step 4: Triggering re-validation...`);
-      const patchRes = await this.patchDomain(fullDomain);
-      console.log(`[Register] Step 4 status: ${patchRes}`);
+      // 4. Trigger Re-validation (PATCH) for all domains
+      console.log(`[Register] Step 4: Triggering re-validation for all domains...`);
+      for (const currentDomain of domainsToRegister) {
+          const patchRes = await this.patchDomain(currentDomain);
+          console.log(`[Register] Step 4 status for ${currentDomain}: ${patchRes}`);
+      }
 
       return 200;
     } catch (e) {
@@ -265,7 +274,7 @@ class CloudflareApi {
         // Automatically cleanup DNS record
         const recordId = await this.getDnsRecordId(domainName);
         if (recordId) {
-          await this.deleteDnsRecord(recordId);
+          await this.deleteDnsRecord(domainName, recordId);
         }
       }
 
@@ -290,20 +299,34 @@ class CloudflareApi {
       return 500;
     }
   }
+
+  async getZoneIdForDomain(domainName) {
+    await ensureCfConfig(this.config);
+    if (cachedZoneId[domainName]) return cachedZoneId[domainName];
+    // Attempt to extract root domain (last 2 parts)
+    const parts = domainName.split('.');
+    if (parts.length >= 2) {
+      const rootName = parts.slice(-2).join('.');
+      if (cachedZoneId[rootName]) return cachedZoneId[rootName];
+    }
+    // Fallback to primary config root domain zone id
+    return cachedZoneId[this.config.ROOT_DOMAIN];
+  }
+
   async createDnsRecord(name, content, type = 'CNAME') {
     console.log(`createDnsRecord: ${name} -> ${content}`);
     try {
-      await ensureCfConfig(this.config);
-      if (!cachedZoneId[this.config.ROOT_DOMAIN]) {
-        console.error("No cachedZoneId for DNS record creation");
+      const zoneId = await this.getZoneIdForDomain(name);
+      if (!zoneId) {
+        console.error(`No zoneId found for DNS record creation for domain ${name}`);
         return null;
       }
 
       const existingId = await this.getDnsRecordId(name);
       console.log(`Existing record ID for ${name}: ${existingId}`);
       const url = existingId
-        ? `https://api.cloudflare.com/client/v4/zones/${cachedZoneId[this.config.ROOT_DOMAIN]}/dns_records/${existingId}`
-        : `https://api.cloudflare.com/client/v4/zones/${cachedZoneId[this.config.ROOT_DOMAIN]}/dns_records`;
+        ? `https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records/${existingId}`
+        : `https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records`;
 
       const res = await fetch(url, {
         method: existingId ? "PUT" : "POST",
@@ -325,9 +348,9 @@ class CloudflareApi {
   }
   async getDnsRecordId(name) {
     try {
-      await ensureCfConfig(this.config);
-      if (!cachedZoneId[this.config.ROOT_DOMAIN]) return null;
-      const url = `https://api.cloudflare.com/client/v4/zones/${cachedZoneId[this.config.ROOT_DOMAIN]}/dns_records?name=${name}`;
+      const zoneId = await this.getZoneIdForDomain(name);
+      if (!zoneId) return null;
+      const url = `https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records?name=${name}`;
       const res = await fetch(url, { headers: this.headers });
       const data = await res.json();
       if (data.success && data.result.length > 0) {
@@ -339,11 +362,11 @@ class CloudflareApi {
       return null;
     }
   }
-  async deleteDnsRecord(recordId) {
+  async deleteDnsRecord(name, recordId) {
     try {
-      await ensureCfConfig(this.config);
-      if (!cachedZoneId[this.config.ROOT_DOMAIN]) return 500;
-      const url = `https://api.cloudflare.com/client/v4/zones/${cachedZoneId[this.config.ROOT_DOMAIN]}/dns_records/${recordId}`;
+      const zoneId = await this.getZoneIdForDomain(name);
+      if (!zoneId) return 500;
+      const url = `https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records/${recordId}`;
       const res = await fetch(url, {
         method: "DELETE",
         headers: this.headers,
@@ -758,7 +781,7 @@ const SIDEBAR_COMPONENT = `
                       <label class="text-sm font-semibold text-gray-400">Prefix Domain</label>
                       <input id="new-domain-input"
                              type="text"
-                             placeholder="Masukkan prefix (contoh: 'sub', '@' atau 'root' untuk domain utama)"
+                             placeholder="Masukkan prefix (contoh: 'sub', '@' atau 'root' untuk semua domain)"
                              class="w-full px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-gray-800 border border-gray-700 text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"/>
                   </div>
                   <button id="add-domain-button" onclick="registerDomain()"

@@ -3,4 +3,4 @@
 ───────────────────
 ⎔ Starting local server...
 [wrangler:info] Ready on http://localhost:8787
-[wrangler:info] GET /api/v1/domains 200 OK (1356ms)
+[wrangler:info] GET /api/v1/domains 200 OK (517ms)
