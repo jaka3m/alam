@@ -1,6 +1,0 @@
-
- ⛅️ wrangler 4.97.0
-───────────────────
-⎔ Starting local server...
-[wrangler:info] Ready on http://localhost:8787
-[wrangler:info] GET /api/v1/domains 200 OK (1353ms)

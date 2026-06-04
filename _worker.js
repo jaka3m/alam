@@ -86,7 +86,7 @@ async function getScriptConfig(env, request) {
 }
 
 async function ensureCfConfig(config) {
-  if (cachedAccountId && cachedZoneId[config.ROOT_DOMAIN]) return;
+  if (cachedAccountId && cachedZoneId[config.ROOT_DOMAIN] && Object.keys(cachedZoneId).length > 0) return;
 
   const headers = {
     "X-Auth-Email": config.API_EMAIL,
@@ -259,11 +259,28 @@ class CloudflareApi {
       console.log(`[Register] Step 3: Waiting 5 seconds for propagation...`);
       await new Promise(resolve => setTimeout(resolve, 5000));
 
-      // 4. Trigger Re-validation (PATCH) for all domains
+      // 4. Trigger Re-validation (PATCH) for all domains repeatedly until active or max retries
       console.log(`[Register] Step 4: Triggering re-validation for all domains...`);
       for (const currentDomain of domainsToRegister) {
-          const patchRes = await this.patchDomain(currentDomain);
-          console.log(`[Register] Step 4 status for ${currentDomain}: ${patchRes}`);
+          let retryCount = 0;
+          let isPending = true;
+          while (isPending && retryCount < 5) {
+              const patchRes = await this.patchDomain(currentDomain);
+              console.log(`[Register] Step 4 status for ${currentDomain} (Attempt ${retryCount + 1}): ${patchRes}`);
+
+              // Wait 2 seconds before checking status
+              await new Promise(resolve => setTimeout(resolve, 2000));
+              const checkDomain = await this.getDomain(currentDomain);
+              if (checkDomain && checkDomain.status === 'active') {
+                  isPending = false;
+                  console.log(`[Register] Domain ${currentDomain} is now active.`);
+              } else {
+                  console.log(`[Register] Domain ${currentDomain} is still pending.`);
+                  retryCount++;
+                  // Wait another 3 seconds before next patch attempt
+                  await new Promise(resolve => setTimeout(resolve, 3000));
+              }
+          }
       }
 
       return 200;
@@ -314,13 +331,24 @@ class CloudflareApi {
 
   async getZoneIdForDomain(domainName) {
     await ensureCfConfig(this.config);
+
+    // Exact match
     if (cachedZoneId[domainName]) return cachedZoneId[domainName];
-    // Attempt to extract root domain (last 2 parts)
-    const parts = domainName.split('.');
-    if (parts.length >= 2) {
-      const rootName = parts.slice(-2).join('.');
-      if (cachedZoneId[rootName]) return cachedZoneId[rootName];
+
+    // Find the longest matching root domain from cachedZoneId
+    let longestMatch = "";
+    for (const cachedDomain in cachedZoneId) {
+        if (domainName.endsWith("." + cachedDomain) || domainName === cachedDomain) {
+            if (cachedDomain.length > longestMatch.length) {
+                longestMatch = cachedDomain;
+            }
+        }
     }
+
+    if (longestMatch) {
+        return cachedZoneId[longestMatch];
+    }
+
     // Fallback to primary config root domain zone id
     return cachedZoneId[this.config.ROOT_DOMAIN];
   }
@@ -794,7 +822,7 @@ const SIDEBAR_COMPONENT = `
                       <label class="text-sm font-semibold text-gray-400">Prefix Domain</label>
                       <input id="new-domain-input"
                              type="text"
-                             placeholder="Masukkan prefix (contoh: 'sub', '@' atau 'root' untuk semua domain)"
+                             placeholder="Masukkan prefix (contoh: 'sub', '@' atau 'root' untuk domain utama)"
                              class="w-full px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-gray-800 border border-gray-700 text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"/>
                   </div>
                   <button id="add-domain-button" onclick="registerDomain()"

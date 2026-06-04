@@ -75,7 +75,7 @@ async function getScriptConfig(env, request) {
 }
 __name(getScriptConfig, "getScriptConfig");
 async function ensureCfConfig(config) {
-  if (cachedAccountId && cachedZoneId[config.ROOT_DOMAIN]) return;
+  if (cachedAccountId && cachedZoneId[config.ROOT_DOMAIN] && Object.keys(cachedZoneId).length > 0) return;
   const headers = {
     "X-Auth-Email": config.API_EMAIL,
     "X-Auth-Key": config.API_KEY,
@@ -231,8 +231,22 @@ var CloudflareApi = class {
       await new Promise((resolve) => setTimeout(resolve, 5e3));
       console.log(`[Register] Step 4: Triggering re-validation for all domains...`);
       for (const currentDomain of domainsToRegister) {
-        const patchRes = await this.patchDomain(currentDomain);
-        console.log(`[Register] Step 4 status for ${currentDomain}: ${patchRes}`);
+        let retryCount = 0;
+        let isPending = true;
+        while (isPending && retryCount < 5) {
+          const patchRes = await this.patchDomain(currentDomain);
+          console.log(`[Register] Step 4 status for ${currentDomain} (Attempt ${retryCount + 1}): ${patchRes}`);
+          await new Promise((resolve) => setTimeout(resolve, 2e3));
+          const checkDomain = await this.getDomain(currentDomain);
+          if (checkDomain && checkDomain.status === "active") {
+            isPending = false;
+            console.log(`[Register] Domain ${currentDomain} is now active.`);
+          } else {
+            console.log(`[Register] Domain ${currentDomain} is still pending.`);
+            retryCount++;
+            await new Promise((resolve) => setTimeout(resolve, 3e3));
+          }
+        }
       }
       return 200;
     } catch (e) {
@@ -279,10 +293,16 @@ var CloudflareApi = class {
   async getZoneIdForDomain(domainName) {
     await ensureCfConfig(this.config);
     if (cachedZoneId[domainName]) return cachedZoneId[domainName];
-    const parts = domainName.split(".");
-    if (parts.length >= 2) {
-      const rootName = parts.slice(-2).join(".");
-      if (cachedZoneId[rootName]) return cachedZoneId[rootName];
+    let longestMatch = "";
+    for (const cachedDomain in cachedZoneId) {
+      if (domainName.endsWith("." + cachedDomain) || domainName === cachedDomain) {
+        if (cachedDomain.length > longestMatch.length) {
+          longestMatch = cachedDomain;
+        }
+      }
+    }
+    if (longestMatch) {
+      return cachedZoneId[longestMatch];
     }
     return cachedZoneId[this.config.ROOT_DOMAIN];
   }
@@ -749,7 +769,7 @@ var SIDEBAR_COMPONENT = `
                       <label class="text-sm font-semibold text-gray-400">Prefix Domain</label>
                       <input id="new-domain-input"
                              type="text"
-                             placeholder="Masukkan prefix (contoh: 'sub', '@' atau 'root' untuk semua domain)"
+                             placeholder="Masukkan prefix (contoh: 'sub', '@' atau 'root' untuk domain utama)"
                              class="w-full px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-gray-800 border border-gray-700 text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"/>
                   </div>
                   <button id="add-domain-button" onclick="registerDomain()"
@@ -7023,7 +7043,7 @@ var jsonError = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx)
 }, "jsonError");
 var middleware_miniflare3_json_error_default = jsonError;
 
-// .wrangler/tmp/bundle-TtNRx8/middleware-insertion-facade.js
+// .wrangler/tmp/bundle-ZjoiXW/middleware-insertion-facade.js
 var __INTERNAL_WRANGLER_MIDDLEWARE__ = [
   middleware_ensure_req_body_drained_default,
   middleware_miniflare3_json_error_default
@@ -7055,7 +7075,7 @@ function __facade_invoke__(request, env, ctx, dispatch, finalMiddleware) {
 }
 __name(__facade_invoke__, "__facade_invoke__");
 
-// .wrangler/tmp/bundle-TtNRx8/middleware-loader.entry.ts
+// .wrangler/tmp/bundle-ZjoiXW/middleware-loader.entry.ts
 var __Facade_ScheduledController__ = class ___Facade_ScheduledController__ {
   constructor(scheduledTime, cron, noRetry) {
     this.scheduledTime = scheduledTime;
