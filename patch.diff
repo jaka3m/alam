@@ -1,0 +1,50 @@
+--- _worker.js
++++ _worker.js
+@@ -194,8 +194,8 @@
+       }
+
+       domain = domain.toLowerCase().trim();
+-      const suffix = `.${this.config.SERVICE_NAME}.${this.config.ROOT_DOMAIN}`;
++      const suffix = `.${this.config.ROOT_DOMAIN}`;
+       let fullDomain = domain.endsWith(suffix) ? domain : domain + suffix;
+
+       console.log(`[Register] Processing: ${fullDomain}`);
+@@ -1186,8 +1186,8 @@
+       const tls = url.searchParams.get('tls') !== 'false';
+       const wildcard = url.searchParams.get('wildcard') === 'true';
+       const bug = url.searchParams.get('bug');
+-      const bugs = wildcard ? (bug || rootDomain) : (bug || `${serviceName}.${rootDomain}`);
+-      const geo81 = wildcard ? `${bug || rootDomain}.${serviceName}.${rootDomain}` : `${serviceName}.${rootDomain}`;
++      const bugs = wildcard ? (bug || rootDomain) : (bug || rootDomain);
++      const geo81 = wildcard ? `${bug || rootDomain}.${rootDomain}` : rootDomain;
+       const country = url.searchParams.get('country');
+       const limit = parseInt(url.searchParams.get('limit'), 10); // Ambil nilai limit
+       let configs;
+@@ -3527,15 +3527,12 @@
+     } catch (e) {
+         console.error("Error fetching domains in handleWebRequest:", e);
+     }
+-    const suffixWithService = `.${config.SERVICE_NAME}.${config.ROOT_DOMAIN}`;
+     const suffixRootOnly = `.${config.ROOT_DOMAIN}`;
+
+     const dynamicWildcards = dynamicDomains.reduce((acc, d) => {
+         const hostname = d.name || "";
+         // Only include subdomains that belong to the current ROOT_DOMAIN
+-        if (hostname.endsWith(suffixWithService)) {
+-            acc.push(hostname.slice(0, -suffixWithService.length));
+-        } else if (hostname.endsWith(suffixRootOnly)) {
++        if (hostname.endsWith(suffixRootOnly)) {
+             // Ensure it's actually a subdomain (not exact match) to avoid empty string
+             const prefix = hostname.slice(0, -suffixRootOnly.length);
+             if (prefix) acc.push(prefix);
+@@ -3613,8 +3610,8 @@
+     visibleConfigs.forEach((config, index) => {
+         const rowNumber = startIndex + index + 1;
+         const uuid = generateUUIDv4();
+-        const wildcard = selectedWildcard ? selectedWildcard : `${serviceName}.${hostName}`;
+-        const modifiedHostName = selectedWildcard ? `${selectedWildcard}.${serviceName}.${hostName}` : `${serviceName}.${hostName}`;
++        const wildcard = selectedWildcard ? selectedWildcard : hostName;
++        const modifiedHostName = selectedWildcard ? `${selectedWildcard}.${hostName}` : hostName;
+         const url = new URL(request.url);
+         const ipPort = `${config.ip}:${config.port}`;
+         const path2 = `/${config.ip}=${config.port}`;
