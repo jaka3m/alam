@@ -175,8 +175,13 @@ var CloudflareApi = class {
         return 500;
       }
       domain = domain.toLowerCase().trim();
-      const suffix = `.${this.config.ROOT_DOMAIN}`;
-      let fullDomain = domain.endsWith(suffix) ? domain : domain + suffix;
+      let fullDomain;
+      if (domain === "@" || domain === "root") {
+        fullDomain = this.config.ROOT_DOMAIN;
+      } else {
+        const suffix = `.${this.config.ROOT_DOMAIN}`;
+        fullDomain = domain.endsWith(suffix) ? domain : domain + suffix;
+      }
       console.log(`[Register] Processing: ${fullDomain}`);
       const registeredDomains = await this.getDomainList();
       const existing = registeredDomains.find((d) => d.name === fullDomain);
@@ -713,7 +718,7 @@ var SIDEBAR_COMPONENT = `
                       <label class="text-sm font-semibold text-gray-400">Prefix Domain</label>
                       <input id="new-domain-input"
                              type="text"
-                             placeholder="Masukkan prefix (contoh: 'sub')"
+                             placeholder="Masukkan prefix (contoh: 'sub', '@' atau 'root' untuk domain utama)"
                              class="w-full px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-gray-800 border border-gray-700 text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"/>
                   </div>
                   <button id="add-domain-button" onclick="registerDomain()"
