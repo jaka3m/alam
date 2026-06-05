@@ -565,7 +565,7 @@ const SIDEBAR_COMPONENT = `
             if (rootDomain) {
                 document.querySelectorAll('a.menu-item').forEach(el => {
                     const href = el.getAttribute('href');
-                    if (href && (href === '/web' || href === '/vpn')) {
+                    if (href && (href === '/web' || href === '/vpn' || href === '/checker')) {
                         el.setAttribute('href', href + '?rootDomain=' + encodeURIComponent(rootDomain));
                     }
                 });
@@ -1356,6 +1356,7 @@ export default {
         case "/":
           return await handleWebRequest(request, env, config);
           break;
+        case "/vpn":
         case atob('L3Zwbg=='):
           return new Response(await handleSubRequest(url.hostname, env, config), { headers: { 'Content-Type': 'text/html' } });
 
@@ -1404,7 +1405,7 @@ async function handleCheck(paramss, request, ctx) {
   const cacheKey = new Request(cacheUrl.toString(), request);
   let response = await cache.match(cacheKey);
   if (response) return response;
-  const apiUrl = `https://checker.wasmer.app/check?ip=${ip}:${port}`;
+  const apiUrl = `https://check.gpj3.web.id/check?ip=${ip}:${port}`;
   try {
     const apiResponse = await fetch(apiUrl);
     
@@ -1419,7 +1420,7 @@ async function handleCheck(paramss, request, ctx) {
       asn: result.asn || "Unknown",
       colo: result.colo || "Unknown",
       httpProtocol: result.httpProtocol || "Unknown",
-      delay: result.delay || "Unknown",
+      delay: result.delay ? (parseInt(result.delay) || "Unknown") : "Unknown",
       speed_est: result.speed_est || "Unknown",
       latitude: result.latitude || "Unknown",
       longitude: result.longitude || "Unknown",
@@ -3472,7 +3473,7 @@ ${SIDEBAR_COMPONENT}
           Root Domain
         </label>
         <select id="rootDomain" class="form-control">
-          \${(config.ZONES || []).map(z => `<option value="\${z.name}" \${config.ROOT_DOMAIN === z.name ? 'selected' : ''}>\${z.name}</option>`).join('\\n                        ')}
+          ${(config.ZONES || []).map(z => '<option value="' + z.name + '" ' + (config.ROOT_DOMAIN === z.name ? 'selected' : '') + '>' + z.name + '</option>').join('\n                        ')}
         </select>
       </div>
       <div class="form-group">
@@ -4520,13 +4521,13 @@ function buildCountryFlag(page) {
         <div class="quantum-select-container">
   <select id="rootDomain" name="rootDomain" onchange="onRootDomainChange(event)" 
           class="quantum-select w-full sm:w-auto">
-    ${(config.ZONES || []).map(z => `<option value="${z.name}" ${config.ROOT_DOMAIN === z.name ? 'selected' : ''}>${z.name}</option>`).join('')}
+    ${(config.ZONES || []).map(z => '<option value="' + z.name + '" ' + (config.ROOT_DOMAIN === z.name ? 'selected' : '') + '>' + z.name + '</option>').join('')}
   </select>
 
   <select id="wildcard" name="wildcard" onchange="onWildcardChange(event)" 
           class="quantum-select w-full sm:w-auto">
     <option value="" ${!selectedWildcard ? 'selected' : ''}>No Wildcard</option>
-    ${allWildcards.map(w => `<option value="${w}" ${selectedWildcard === w ? 'selected' : ''}>${w}</option>`).join('')}
+    ${allWildcards.map(w => '<option value="' + w + '" ' + (selectedWildcard === w ? 'selected' : '') + '>' + w + '</option>').join('')}
   </select>
 </div>
         
