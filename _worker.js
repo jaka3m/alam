@@ -1404,7 +1404,7 @@ async function handleCheck(paramss, request, ctx) {
   const cacheKey = new Request(cacheUrl.toString(), request);
   let response = await cache.match(cacheKey);
   if (response) return response;
-  const apiUrl = `https://checker.wasmer.app/check?ip=${ip}:${port}`;
+  const apiUrl = `https://check.gpj3.web.id/check?ip=${ip}:${port}`;
   try {
     const apiResponse = await fetch(apiUrl);
     
