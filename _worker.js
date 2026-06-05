@@ -1453,392 +1453,424 @@ async function handleCheck(paramss, request, ctx) {
     });
   }
 }
+
 function mamangenerateHTML() {
   return `
-<!DOCTYPE html>
-<html lang="id">
+<!doctype html>
+<html lang="id" data-theme="dark">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Proxy Checker</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#061518">
+  <title>GEOVPN - Proxy Checker</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script>
+    try { document.documentElement.dataset.theme = localStorage.getItem("j1-theme") || "dark"; } catch (_) {}
+  </script>
   <style>
-    :root {
-      --bg-primary: #0f172a;
-      --bg-secondary: #1e293b;
-      --glass-bg: rgba(30, 41, 59, 0.4);
-      --glass-border: rgba(255, 255, 255, 0.1);
-      --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-      --primary: #3b82f6;
-      --primary-glow: rgba(59, 130, 246, 0.4);
-      --secondary: #8b5cf6;
-      --accent: #06b6d4;
-      --text-primary: #f1f5f9;
-      --text-secondary: #94a3b8;
-      --success: #10b981;
-      --warning: #f59e0b;
-      --error: #ef4444;
+    :root{
+      --bg:#061518; --panel:rgba(9,27,31,.88); --card:#0c2429; --card2:#0a2024;
+      --line:rgba(126,222,205,.14); --line2:rgba(65,223,185,.32);
+      --text:#effdf9; --muted:#82a9a7; --sub:#628988; --mint:#20e3b2;
+      --mint2:#00bc8f; --violet:#a482ff; --green:#22da94; --red:#fb7185;
+      --shadow:0 22px 65px rgba(0,0,0,.32);
     }
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
+    html[data-theme="light"]{
+      --bg:#edf9f7; --panel:rgba(255,255,255,.90); --card:#fff; --card2:#f3fffb;
+      --line:rgba(18,85,80,.12); --line2:rgba(0,165,124,.28);
+      --text:#092d30; --muted:#5d817e; --sub:#668a85; --mint:#00a87f;
+      --mint2:#008c6c; --violet:#7250d7; --shadow:0 20px 50px rgba(21,56,55,.10);
     }
-    body {
-      background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
-      color: var(--text-primary);
-      font-family: 'Rajdhani', sans-serif;
-      min-height: 100vh;
-      position: relative;
-      overflow-x: hidden;
+    *{box-sizing:border-box}
+    html,body{margin:0;min-height:100%}
+    body{
+      font-family:Inter,"Segoe UI",Arial,sans-serif;color:var(--text);
+      background:
+        radial-gradient(circle at 10% 0%,rgba(32,227,178,.14),transparent 34%),
+        radial-gradient(circle at 100% 10%,rgba(164,130,255,.14),transparent 29%),
+        var(--bg);
     }
-    body::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: 
-        radial-gradient(circle at 20% 80%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
-        radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.1) 0%, transparent 50%);
-      z-index: -1;
+    body::before{
+      content:"";position:fixed;inset:0;pointer-events:none;opacity:.20;
+      background-image:linear-gradient(rgba(100,215,195,.05) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(100,215,195,.045) 1px,transparent 1px);
+      background-size:40px 40px;mask-image:linear-gradient(180deg,#000,transparent 70%);
     }
-    header {
-      text-align: center;
-      padding: 40px 20px 20px;
-      background: var(--glass-bg);
-      backdrop-filter: blur(20px);
-      border-bottom: 1px solid var(--glass-border);
-      margin-bottom: 30px;
+    button,input{font:inherit;color:inherit}
+    button{cursor:pointer;-webkit-tap-highlight-color:transparent}
+    .app{position:relative;z-index:1;width:min(1200px,100%);margin:auto;padding:12px 10px 34px}
+    .hero{
+      border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);backdrop-filter:blur(16px);
+      border-radius:27px;padding:14px;margin-bottom:12px;overflow:hidden;position:relative
     }
-    .header-content {
-      max-width: 1200px;
-      margin: 0 auto;
+    .hero::after{
+      content:"";position:absolute;width:230px;height:230px;right:-98px;top:-112px;
+      border-radius:50%;background:radial-gradient(circle,rgba(164,130,255,.35),transparent 65%)
     }
-    h1 {
-      font-family: 'Space Grotesk', sans-serif;
-      font-size: 3rem;
-      font-weight: 700;
-      background: linear-gradient(135deg, var(--primary), var(--secondary));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      text-shadow: 0 0 30px var(--primary-glow);
-      margin-bottom: 10px;
+    .top{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:8px}
+    .brand{display:flex;align-items:center;gap:10px;min-width:0}
+    .logo{
+      width:50px;height:50px;flex:0 0 50px;border-radius:16px;display:grid;place-items:center;
+      background:linear-gradient(145deg,var(--mint),#058f8b 53%,var(--violet));
+      box-shadow:0 11px 25px rgba(32,227,178,.18);border:1px solid rgba(255,255,255,.17)
     }
-    .subtitle {
-      color: var(--text-secondary);
-      font-size: 1.2rem;
-      font-weight: 500;
+    .logo svg{width:31px;height:31px}
+    .micro{font-size:8px;letter-spacing:.3em;color:var(--mint);font-weight:850;margin-bottom:6px}
+    .brand-title{font-size:18px;font-weight:790;letter-spacing:-.045em;line-height:1;white-space:nowrap}
+    .top-buttons{display:flex;gap:5px;align-items:center}
+    .theme{
+      height:36px;width:36px;border-radius:11px;border:1px solid var(--line);
+      background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;
     }
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 0 20px 40px;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 30px;
-      align-items: start;
+    .theme svg{width:17px;height:17px;color:var(--mint)}
+    .sun{display:none}
+    html[data-theme="light"] .sun{display:block}
+    html[data-theme="light"] .moon{display:none}
+    
+    /* Container utama */
+    .container{
+      background:var(--panel);
+      backdrop-filter:blur(16px);
+      border:1px solid var(--line);
+      border-radius:24px;
+      padding:20px;
+      margin-bottom:20px;
     }
-    @media (max-width: 968px) {
-      .container {
-        grid-template-columns: 1fr;
+    
+    /* Section Title */
+    .section-title{
+      font-size:20px;
+      font-weight:700;
+      margin-bottom:20px;
+      color:var(--text);
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .section-title i{
+      color:var(--mint);
+      font-size:22px;
+    }
+    
+    /* Input Section */
+    .input-section{
+      margin-bottom:30px;
+    }
+    .input-container{
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+    .input-container input{
+      flex:1;
+      min-width:200px;
+      height:48px;
+      padding:0 16px;
+      border:1px solid var(--line2);
+      border-radius:12px;
+      background:rgba(0,0,0,.2);
+      color:var(--text);
+      font-size:14px;
+      outline:none;
+      transition:all .2s;
+    }
+    .input-container input:focus{
+      border-color:var(--mint);
+      box-shadow:0 0 0 2px rgba(32,227,178,.1);
+    }
+    .input-container button{
+      height:48px;
+      padding:0 24px;
+      background:linear-gradient(135deg,var(--mint),var(--mint2));
+      border:none;
+      border-radius:12px;
+      color:#062823;
+      font-weight:700;
+      font-size:14px;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      transition:transform .1s;
+    }
+    .input-container button:active{
+      transform:scale(.98);
+    }
+    .input-container button i{
+      font-size:16px;
+    }
+    
+    /* Loading */
+    #loading{
+      margin-top:15px;
+      color:var(--mint);
+      font-size:13px;
+      display:none;
+    }
+    #loading i{
+      margin-right:8px;
+    }
+    
+    /* Results Grid */
+    .results-section{
+      margin-bottom:30px;
+    }
+    .grid{
+      display:grid;
+      gap:16px;
+    }
+    .grid-cols-1{
+      grid-template-columns:1fr;
+    }
+    .card-glass{
+      background:rgba(0,0,0,.2);
+      border:1px solid var(--line);
+      border-radius:16px;
+      padding:16px;
+      transition:all .2s;
+    }
+    .card-glass:hover{
+      border-color:var(--line2);
+      transform:translateY(-2px);
+    }
+    .text-xs{
+      font-size:11px;
+      letter-spacing:.1em;
+    }
+    .text-gray-400{
+      color:var(--sub);
+    }
+    .uppercase{
+      text-transform:uppercase;
+    }
+    .font-bold{
+      font-weight:700;
+    }
+    .tracking-wider{
+      letter-spacing:.05em;
+    }
+    .text-lg{
+      font-size:16px;
+    }
+    .text-white{
+      color:var(--text);
+    }
+    .text-green-400{
+      color:var(--green);
+    }
+    .text-red-400{
+      color:var(--red);
+    }
+    .text-yellow-400{
+      color:#fbbf24;
+    }
+    .font-semibold{
+      font-weight:600;
+    }
+    .p-4{
+      padding:16px;
+    }
+    .flex{
+      display:flex;
+    }
+    .flex-col{
+      flex-direction:column;
+    }
+    .justify-center{
+      justify-content:center;
+    }
+    .border{
+      border-width:1px;
+    }
+    .border-white\/10{
+      border-color:rgba(255,255,255,.1);
+    }
+    .gap-4{
+      gap:16px;
+    }
+    
+    /* Map Section */
+    .map-section{
+      margin-bottom:20px;
+    }
+    #map{
+      height:400px;
+      border-radius:16px;
+      overflow:hidden;
+      border:1px solid var(--line);
+    }
+    
+    /* Footer */
+    footer{
+      text-align:center;
+      padding:20px;
+      color:var(--muted);
+      font-size:12px;
+    }
+    footer h2{
+      font-size:12px;
+      font-weight:400;
+      margin:0;
+    }
+    
+    /* Responsive */
+    @media(min-width:640px){
+      .sm\:grid-cols-2{
+        grid-template-columns:repeat(2,1fr);
       }
     }
-    .input-section {
-      background: var(--glass-bg);
-      backdrop-filter: blur(20px);
-      border: 1px solid var(--glass-border);
-      border-radius: 20px;
-      padding: 30px;
-      box-shadow: var(--glass-shadow);
-    }
-    .input-container {
-      display: flex;
-      gap: 15px;
-      margin-bottom: 25px;
-    }
-    #ipInput {
-      flex: 1;
-      background: rgba(15, 23, 42, 0.6);
-      backdrop-filter: blur(10px);
-      border: 1px solid var(--glass-border);
-      border-radius: 12px;
-      padding: 15px 20px;
-      color: var(--text-primary);
-      font-size: 1rem;
-      font-family: 'Rajdhani', sans-serif;
-      transition: all 0.3s ease;
-    }
-    #ipInput:focus {
-      outline: none;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px var(--primary-glow);
-    }
-    #ipInput::placeholder {
-      color: var(--text-secondary);
-    }
-    .input-container button {
-      background: linear-gradient(135deg, var(--primary), var(--secondary));
-      border: none;
-      border-radius: 12px;
-      padding: 15px 30px;
-      color: white;
-      font-family: 'Rajdhani', sans-serif;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .input-container button:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 25px var(--primary-glow);
-    }
-    .input-container button:active {
-      transform: translateY(0);
-    }
-    .input-container button i {
-      font-size: 1.1rem;
-    }
-    #loading {
-      display: none;
-      text-align: center;
-      color: var(--accent);
-      font-size: 1.1rem;
-      font-weight: 600;
-      padding: 20px;
-      background: rgba(6, 182, 212, 0.1);
-      border-radius: 12px;
-      border: 1px solid rgba(6, 182, 212, 0.3);
-    }
-    .results-section {
-      background: var(--glass-bg);
-      backdrop-filter: blur(20px);
-      border: 1px solid var(--glass-border);
-      border-radius: 20px;
-      padding: 30px;
-      box-shadow: var(--glass-shadow);
-    }
-    .section-title {
-      font-family: 'Space Grotesk', sans-serif;
-      font-size: 1.5rem;
-      font-weight: 600;
-      margin-bottom: 20px;
-      color: var(--text-primary);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .section-title i {
-      color: var(--primary);
-    }
-    .status-active {
-      color: var(--success) !important;
-      font-weight: 600;
-    }
-    .status-inactive {
-      color: var(--error) !important;
-      font-weight: 600;
-    }
-    .delay-good {
-      color: var(--success) !important;
-      font-weight: 600;
-    }
-    .delay-medium {
-      color: var(--warning) !important;
-      font-weight: 600;
-    }
-    .delay-poor {
-      color: var(--error) !important;
-      font-weight: 600;
-    }
-    .map-section {
-      grid-column: 1 / -1;
-      background: var(--glass-bg);
-      backdrop-filter: blur(20px);
-      border: 1px solid var(--glass-border);
-      border-radius: 20px;
-      padding: 30px;
-      box-shadow: var(--glass-shadow);
-      margin-top: 20px;
-    }
-    #map {
-      height: 400px;
-      border-radius: 12px;
-      overflow: hidden;
-      border: 1px solid var(--glass-border);
-    }
-    footer {
-      text-align: center;
-      padding: 30px 20px;
-      background: var(--glass-bg);
-      backdrop-filter: blur(20px);
-      border-top: 1px solid var(--glass-border);
-      margin-top: 40px;
-    }
-    footer h2 {
-      color: var(--text-secondary);
-      font-family: 'Space Grotesk', sans-serif;
-      font-size: 1rem;
-      font-weight: 500;
-    }
-    /* Animations */
-    @keyframes fadeInUp {
-      from {
-        opacity: 0;
-        transform: translateY(20px);
+    @media(min-width:1024px){
+      .lg\:grid-cols-3{
+        grid-template-columns:repeat(3,1fr);
       }
-      to {
-        opacity: 1;
-        transform: translateY(0);
+      .container{
+        padding:24px;
+      }
+      .app{
+        padding:18px 16px 40px;
+      }
+      .hero{
+        padding:18px;
+        border-radius:30px;
+      }
+      .brand-title{
+        font-size:23px;
+      }
+      .section-title{
+        font-size:24px;
       }
     }
-    .input-section, .results-section, .map-section {
-      animation: fadeInUp 0.6s ease forwards;
-    }
-    .results-section {
-      animation-delay: 0.1s;
-    }
-    .map-section {
-      animation-delay: 0.2s;
-    }
-    /* SweetAlert2 Customization */
-    .swal2-popup {
-      background: var(--glass-bg) !important;
-      backdrop-filter: blur(20px) !important;
-      border: 1px solid var(--glass-border) !important;
-      border-radius: 20px !important;
-      color: var(--text-primary) !important;
-    }
-    .swal2-title {
-      color: var(--text-primary) !important;
-      font-family: 'Space Grotesk', sans-serif !important;
-    }
-    .swal2-content {
-      color: var(--text-secondary) !important;
-    }
-    /* Responsive Design */
-    @media (max-width: 768px) {
-      h1 {
-        font-size: 2.2rem;
+    @media(max-width:430px){
+      .container{
+        padding:16px;
       }
-      .container {
-        padding: 0 15px 30px;
-        gap: 20px;
+      .input-container{
+        flex-direction:column;
       }
-      .input-section, .results-section, .map-section {
-        padding: 20px;
+      .input-container button{
+        width:100%;
       }
-      .input-container {
-        flex-direction: column;
-      }
-      .input-container button {
-        justify-content: center;
-      }
-      .subtitle {
-        font-size: 1rem;
-      }
-      .section-title {
-        font-size: 1.3rem;
+      .card-glass{
+        padding:12px;
       }
     }
+    
+    .input-container input{
+  height:auto;
+  padding:18px 20px;  /* Padding vertikal 18px */
+  font-size:15px;
+}
+.input-container button{
+  height:auto;
+  padding:18px 28px;
+  font-size:15px;
+}
   </style>
 </head>
 <body>
-  ${SIDEBAR_COMPONENT}
-  
-  <header>
-    <div class="header-content">
-      <h1><i class="fas fa-shield-alt"></i> Proxy Checker</h1>
-      <p class="subtitle">Check proxy details and geolocation in real-time</p>
-    </div>
-  </header>
-  <!-- Main Content -->
-  <div class="container">
-    <div class="input-section">
-      <h2 class="section-title"><i class="fas fa-search"></i> Check Proxy</h2>
-      <div class="input-container">
-        <input type="text" id="ipInput" placeholder="Input IP:Port (192.168.1.1:443)">
-        <button onclick="checkProxy()">
-          <i class="fas fa-play-circle"></i>
-          Check
-        </button>
+  <main class="app">
+    <header class="hero">
+      <div class="top">
+        <div class="brand">
+          <div class="logo">
+            <svg viewBox="0 0 32 32" fill="none"><path d="M16 3 26 7v7.8c0 6.1-4.1 10.7-10 13.1C10.1 25.5 6 20.9 6 14.8V7l10-4Z" fill="rgba(255,255,255,.16)" stroke="#fff" stroke-width="1.4"/><path d="m19 6.8-9 11h5l-2.2 7.5L22 14.2h-5l2-7.4Z" fill="#fff"/></svg>
+          </div>
+          <div><div class="micro">GEOVPN</div><div class="brand-title">Proxy Checker</div></div>
+        </div>
+        <div class="top-buttons">
+          <button class="theme" id="themeToggle" type="button" aria-label="Tema">
+            <svg class="moon" viewBox="0 0 24 24" fill="none"><path d="M20.3 15.5a8.6 8.6 0 0 1-11.8-11 9 9 0 1 0 11.8 11Z" stroke="currentColor" stroke-width="1.9"/></svg>
+            <svg class="sun" viewBox="0 0 24 24" fill="none"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0-6v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M19 5l-2 2M7 17l-2 2" stroke="currentColor" stroke-width="1.8"/></svg>
+          </button>
+        </div>
       </div>
-      <p id="loading">
-        <i class="fas fa-spinner fa-spin"></i>
-        Checking proxy details...
-      </p>
-    </div>
-    <div class="results-section">
-      <h2 class="section-title"><i class="fas fa-info-circle"></i> Proxy Details</h2>
-      <div id="proxyResults" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div class="card-glass p-4 flex flex-col justify-center border border-white/10">
+    </header>
+    
+    <div class="container">
+      <div class="input-section">
+        <h2 class="section-title"><i class="fas fa-search"></i> Check Proxy</h2>
+        <div class="input-container">
+          <input type="text" id="ipInput" placeholder="Input IP:Port (192.168.1.1:443)">
+          <button onclick="checkProxy()">
+            <i class="fas fa-play-circle"></i>
+            Check
+          </button>
+        </div>
+        <p id="loading">
+          <i class="fas fa-spinner fa-spin"></i>
+          Checking proxy details...
+        </p>
+      </div>
+      
+      <div class="results-section">
+        <h2 class="section-title"><i class="fas fa-info-circle"></i> Proxy Details</h2>
+        <div id="proxyResults" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div class="card-glass p-4 flex flex-col justify-center">
             <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">IP Address</span>
             <span class="text-lg text-white font-semibold" data-key="ip">-</span>
-        </div>
-        <div class="card-glass p-4 flex flex-col justify-center border border-white/10">
+          </div>
+          <div class="card-glass p-4 flex flex-col justify-center">
             <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">Port</span>
             <span class="text-lg text-white font-semibold" data-key="port">-</span>
-        </div>
-        <div class="card-glass p-4 flex flex-col justify-center border border-white/10">
+          </div>
+          <div class="card-glass p-4 flex flex-col justify-center">
             <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">Status</span>
             <span class="text-lg font-bold" data-key="status">-</span>
-        </div>
-        <div class="card-glass p-4 flex flex-col justify-center border border-white/10">
+          </div>
+          <div class="card-glass p-4 flex flex-col justify-center">
             <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">ISP</span>
             <span class="text-lg text-white font-semibold" data-key="isp">-</span>
-        </div>
-        <div class="card-glass p-4 flex flex-col justify-center border border-white/10">
+          </div>
+          <div class="card-glass p-4 flex flex-col justify-center">
             <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">Country Code</span>
             <span class="text-lg text-white font-semibold" data-key="countryCode">-</span>
-        </div>
-        <div class="card-glass p-4 flex flex-col justify-center border border-white/10">
+          </div>
+          <div class="card-glass p-4 flex flex-col justify-center">
             <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">Country</span>
             <span class="text-lg text-white font-semibold" data-key="country">-</span>
-        </div>
-        <div class="card-glass p-4 flex flex-col justify-center border border-white/10">
+          </div>
+          <div class="card-glass p-4 flex flex-col justify-center">
             <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">ASN</span>
             <span class="text-lg text-white font-semibold" data-key="asn">-</span>
-        </div>
-        <div class="card-glass p-4 flex flex-col justify-center border border-white/10">
+          </div>
+          <div class="card-glass p-4 flex flex-col justify-center">
             <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">Colo</span>
             <span class="text-lg text-white font-semibold" data-key="colo">-</span>
-        </div>
-        <div class="card-glass p-4 flex flex-col justify-center border border-white/10">
+          </div>
+          <div class="card-glass p-4 flex flex-col justify-center">
             <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">HTTP Protocol</span>
             <span class="text-lg text-white font-semibold" data-key="httpProtocol">-</span>
-        </div>
-        <div class="card-glass p-4 flex flex-col justify-center border border-white/10">
+          </div>
+          <div class="card-glass p-4 flex flex-col justify-center">
             <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">Delay</span>
             <span class="text-lg text-white font-semibold" data-key="delay">-</span>
-        </div>
-        <div class="card-glass p-4 flex flex-col justify-center border border-white/10">
+          </div>
+          <div class="card-glass p-4 flex flex-col justify-center">
             <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">Speed Est</span>
             <span class="text-lg text-white font-semibold" data-key="speed_est">-</span>
-        </div>
-        <div class="card-glass p-4 flex flex-col justify-center border border-white/10">
+          </div>
+          <div class="card-glass p-4 flex flex-col justify-center">
             <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">Latitude</span>
             <span class="text-lg text-white font-semibold" data-key="latitude">-</span>
-        </div>
-        <div class="card-glass p-4 flex flex-col justify-center border border-white/10">
+          </div>
+          <div class="card-glass p-4 flex flex-col justify-center">
             <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">Longitude</span>
             <span class="text-lg text-white font-semibold" data-key="longitude">-</span>
+          </div>
         </div>
       </div>
+      
+      <div class="map-section">
+        <h2 class="section-title"><i class="fas fa-map-marked-alt"></i> Geolocation Map</h2>
+        <div id="map"></div>
+      </div>
     </div>
-    <div class="map-section">
-      <h2 class="section-title"><i class="fas fa-map-marked-alt"></i> Geolocation Map</h2>
-      <div id="map"></div>
-    </div>
-  </div>
-  <footer>
-    <h2>&copy; 2025 Proxy Checker. All rights reserved. | GEO PROJECT</h2>
-  </footer>
+    
+    <footer>
+      <h2>&copy; 2025 Proxy Checker. All rights reserved. | GEO PROJECT</h2>
+    </footer>
+  </main>
+  
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
   <script>
@@ -1898,7 +1930,6 @@ function mamangenerateHTML() {
                 updateMap(lat, lon, data);
             }
             
-            // Show success notification
             Swal.fire({
                 icon: 'success',
                 title: 'Berhasil!',
@@ -1964,7 +1995,6 @@ function mamangenerateHTML() {
         } else {
             map.setView([lat, lon], 7);
             
-            // Hapus semua marker sebelum menambahkan yang baru
             map.eachLayer(function (layer) {
                 if (layer instanceof L.Marker) map.removeLayer(layer);
             });
@@ -2016,10 +2046,29 @@ function mamangenerateHTML() {
         }, 500);
     }
   </script>
+  <script>
+(() => {
+  "use strict";
+  
+  const THEME_KEY = "j1-theme";
+  
+  function toggleTheme() {
+    const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+    document.documentElement.dataset.theme = next;
+    localStorage.setItem(THEME_KEY, next);
+  }
+  
+  const themeButton = document.getElementById("themeToggle");
+  if (themeButton) {
+    themeButton.onclick = toggleTheme;
+  }
+})();
+</script>
 </body>
 </html>
 `;
 }
+
 async function handleStatsRequest(config) {
   await ensureCfConfig(config);
   if (!cachedZoneId[config.ROOT_DOMAIN]) {
@@ -3130,528 +3179,477 @@ async function handleSubRequest(hostnem, env, config) {
   }
   const countries = await getCountryList();
   const countryOptions = countries.map(c => `<option value="${c.code.toLowerCase()}">${c.name}</option>`).join('\n');
+  
   const html = ` 
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" data-theme="dark">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Geo-VPN | VPN Tunnel | CloudFlare</title>
-    <link rel="icon" href="https://geoproject.biz.id/circle-flags/bote.png">
-    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flag-icon-css/css/flag-icon.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        :root {
-            --bg-primary: #0f172a;
-            --bg-secondary: #1e293b;
-            --glass-bg: rgba(30, 41, 59, 0.4);
-            --glass-border: rgba(255, 255, 255, 0.1);
-            --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            --primary: #3b82f6;
-            --primary-glow: rgba(59, 130, 246, 0.4);
-            --secondary: #8b5cf6;
-            --accent: #06b6d4;
-            --text-primary: #f1f5f9;
-            --text-secondary: #94a3b8;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --error: #ef4444;
-        }
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
-            color: var(--text-primary);
-            font-family: 'Rajdhani', sans-serif;
-            min-height: 100vh;
-            position: relative;
-            overflow-x: hidden;
-        }
-        body::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: 
-                radial-gradient(circle at 20% 80%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.1) 0%, transparent 50%);
-            z-index: -1;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 40px 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-        }
-        .card {
-            background: var(--glass-bg);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            border-radius: 24px;
-            padding: 40px;
-            box-shadow: var(--glass-shadow);
-            width: 100%;
-            max-width: 600px;
-            position: relative;
-            overflow: hidden;
-        }
-        .card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, var(--primary), var(--secondary));
-        }
-        .title {
-            font-family: 'Space Grotesk', sans-serif;
-            font-size: 2.5rem;
-            font-weight: 700;
-            text-align: center;
-            margin-bottom: 30px;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            text-shadow: 0 0 30px var(--primary-glow);
-        }
-        .form-group {
-            margin-bottom: 25px;
-        }
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            color: var(--text-primary);
-            font-weight: 600;
-            font-size: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .form-group label i {
-            color: var(--primary);
-            width: 20px;
-        }
-        .form-control {
-            width: 100%;
-            background: rgba(15, 23, 42, 0.6);
-            backdrop-filter: blur(10px);
-            border: 1px solid var(--glass-border);
-            border-radius: 12px;
-            padding: 15px 20px;
-            color: var(--text-primary);
-            font-size: 1rem;
-            font-family: 'Rajdhani', sans-serif;
-            transition: all 0.3s ease;
-        }
-        .form-control:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px var(--primary-glow);
-        }
-        .form-control::placeholder {
-            color: var(--text-secondary);
-        }
-        select.form-control {
-            appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%233b82f6'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 15px center;
-            background-size: 20px;
-        }
-        .btn {
-            width: 100%;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            border: none;
-            border-radius: 12px;
-            padding: 18px 30px;
-            color: white;
-            font-family: 'Rajdhani', sans-serif;
-            font-size: 1.1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
-            margin-top: 10px;
-        }
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px var(--primary-glow);
-        }
-        .btn:active {
-            transform: translateY(0);
-        }
-        .loading {
-            display: none;
-            text-align: center;
-            padding: 25px;
-            background: rgba(6, 182, 212, 0.1);
-            border-radius: 12px;
-            border: 1px solid rgba(6, 182, 212, 0.3);
-            color: var(--accent);
-            font-weight: 600;
-            font-size: 1.1rem;
-            margin: 20px 0;
-        }
-        .loading i {
-            margin-right: 10px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .error-message {
-            color: var(--error);
-            text-align: center;
-            padding: 15px;
-            background: rgba(239, 68, 68, 0.1);
-            border-radius: 12px;
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            margin: 15px 0;
-            font-weight: 600;
-        }
-        .result {
-            background: rgba(16, 185, 129, 0.1);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(16, 185, 129, 0.3);
-            border-radius: 16px;
-            padding: 25px;
-            margin-top: 25px;
-            display: none;
-        }
-        .result p {
-            color: var(--text-primary);
-            font-size: 1rem;
-            word-break: break-all;
-            margin-bottom: 20px;
-            line-height: 1.5;
-            background: rgba(0, 0, 0, 0.3);
-            padding: 15px;
-            border-radius: 8px;
-            border: 1px solid var(--glass-border);
-        }
-        .copy-btns {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-        }
-        .copy-btn {
-            background: var(--glass-bg);
-            backdrop-filter: blur(10px);
-            border: 1px solid var(--glass-border);
-            border-radius: 10px;
-            padding: 12px 20px;
-            color: var(--text-primary);
-            font-family: 'Rajdhani', sans-serif;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-        .copy-btn:hover {
-            background: rgba(59, 130, 246, 0.2);
-            border-color: var(--primary);
-            transform: translateY(-1px);
-        }
-        .copy-btn:first-child {
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            border-color: transparent;
-        }
-        .copy-btn:first-child:hover {
-            box-shadow: 0 5px 15px var(--primary-glow);
-        }
-        /* Animations */
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        .card {
-            animation: fadeInUp 0.6s ease forwards;
-        }
-        .form-group {
-            animation: fadeInUp 0.6s ease forwards;
-        }
-        .form-group:nth-child(1) { animation-delay: 0.1s; }
-        .form-group:nth-child(2) { animation-delay: 0.2s; }
-        .form-group:nth-child(3) { animation-delay: 0.3s; }
-        .form-group:nth-child(4) { animation-delay: 0.4s; }
-        .form-group:nth-child(5) { animation-delay: 0.5s; }
-        .form-group:nth-child(6) { animation-delay: 0.6s; }
-        .form-group:nth-child(7) { animation-delay: 0.7s; }
-        .btn { animation-delay: 0.8s; }
-        /* Responsive Design */
-        @media (max-width: 768px) {
-            .container {
-                padding: 20px 15px;
-            }
-            .card {
-                padding: 30px 25px;
-            }
-            .title {
-                font-size: 2rem;
-            }
-            .form-control {
-                padding: 12px 15px;
-            }
-            .btn {
-                padding: 15px 25px;
-            }
-            .copy-btns {
-                grid-template-columns: 1fr;
-            }
-        }
-        @media (max-width: 480px) {
-            .card {
-                padding: 25px 20px;
-            }
-            .title {
-                font-size: 1.8rem;
-            }
-            .form-group {
-                margin-bottom: 20px;
-            }
-        }
-    </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#061518">
+  <title>GEOVPN</title>
+  <script>
+    try { document.documentElement.dataset.theme = localStorage.getItem("j1-theme") || "dark"; } catch (_) {}
+  </script>
+  <style>
+    :root{
+      --bg:#061518; --panel:rgba(9,27,31,.88); --card:#0c2429; --card2:#0a2024;
+      --line:rgba(126,222,205,.14); --line2:rgba(65,223,185,.32);
+      --text:#effdf9; --muted:#82a9a7; --sub:#628988; --mint:#20e3b2;
+      --mint2:#00bc8f; --violet:#a482ff; --green:#22da94; --red:#fb7185;
+      --shadow:0 22px 65px rgba(0,0,0,.32);
+    }
+    html[data-theme="light"]{
+      --bg:#edf9f7; --panel:rgba(255,255,255,.90); --card:#fff; --card2:#f3fffb;
+      --line:rgba(18,85,80,.12); --line2:rgba(0,165,124,.28);
+      --text:#092d30; --muted:#5d817e; --sub:#668a85; --mint:#00a87f;
+      --mint2:#008c6c; --violet:#7250d7; --shadow:0 20px 50px rgba(21,56,55,.10);
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;min-height:100%}
+    body{
+      font-family:Inter,"Segoe UI",Arial,sans-serif;color:var(--text);
+      background:
+        radial-gradient(circle at 10% 0%,rgba(32,227,178,.14),transparent 34%),
+        radial-gradient(circle at 100% 10%,rgba(164,130,255,.14),transparent 29%),
+        var(--bg);
+    }
+    body::before{
+      content:"";position:fixed;inset:0;pointer-events:none;opacity:.20;
+      background-image:linear-gradient(rgba(100,215,195,.05) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(100,215,195,.045) 1px,transparent 1px);
+      background-size:40px 40px;mask-image:linear-gradient(180deg,#000,transparent 70%);
+    }
+    button,input{font:inherit;color:inherit}
+    button{cursor:pointer;-webkit-tap-highlight-color:transparent}
+    .app{position:relative;z-index:1;width:min(940px,100%);margin:auto;padding:12px 10px 34px}
+    .hero,.servers{
+      border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);backdrop-filter:blur(16px)
+    }
+    .hero{border-radius:27px;padding:14px;margin-bottom:12px;overflow:hidden;position:relative}
+    .hero::after{
+      content:"";position:absolute;width:230px;height:230px;right:-98px;top:-112px;
+      border-radius:50%;background:radial-gradient(circle,rgba(164,130,255,.35),transparent 65%)
+    }
+    .top{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:8px}
+    .brand{display:flex;align-items:center;gap:10px;min-width:0}
+    .logo{
+      width:50px;height:50px;flex:0 0 50px;border-radius:16px;display:grid;place-items:center;
+      background:linear-gradient(145deg,var(--mint),#058f8b 53%,var(--violet));
+      box-shadow:0 11px 25px rgba(32,227,178,.18);border:1px solid rgba(255,255,255,.17)
+    }
+    .logo svg{width:31px;height:31px}
+    .micro{font-size:8px;letter-spacing:.3em;color:var(--mint);font-weight:850;margin-bottom:6px}
+    .brand-title{font-size:18px;font-weight:790;letter-spacing:-.045em;line-height:1;white-space:nowrap}
+    .top-buttons{display:flex;gap:5px;align-items:center}
+    .head-btn,.theme{
+      height:36px;border-radius:11px;border:1px solid var(--line);
+      background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;
+    }
+    .head-btn{
+      padding:0 8px;gap:5px;font-size:8px;font-weight:850;letter-spacing:.05em;
+      color:#d7caff;border-color:rgba(164,130,255,.25);
+      background:linear-gradient(110deg,rgba(164,130,255,.11),rgba(32,227,178,.05))
+    }
+    .head-btn.donate{
+      color:#ffd3df;border-color:rgba(244,114,182,.25);
+      background:linear-gradient(110deg,rgba(244,114,182,.13),rgba(164,130,255,.06));
+    }
+    html[data-theme="light"] .head-btn{color:#6541bd}
+    html[data-theme="light"] .head-btn.donate{color:#be3665}
+    .head-btn svg{width:14px;height:14px}
+    .theme{width:36px;color:var(--mint)}
+    .theme svg{width:17px;height:17px}
+    .sun{display:none}
+    html[data-theme="light"] .sun{display:block}
+    html[data-theme="light"] .moon{display:none}
+    .headline{position:relative;z-index:1;margin:18px 2px 14px}
+    .headline h1{font-size:31px;line-height:1.04;letter-spacing:-.065em;margin:0 0 7px;font-weight:820}
+    .headline h1 span{
+      color:transparent;background:linear-gradient(100deg,var(--mint),#84ead2,var(--violet));
+      background-clip:text;-webkit-background-clip:text
+    }
+    .headline p{margin:0;font-size:11px;color:var(--muted);line-height:1.5}
+    .card{
+      background:var(--card);
+      border-radius:24px;
+      padding:20px;
+      margin-top:12px;
+      border:1px solid var(--line);
+    }
+    .form-group{
+      margin-bottom:20px;
+    }
+    .form-group label{
+      display:block;
+      margin-bottom:8px;
+      font-size:12px;
+      font-weight:600;
+      color:var(--mint);
+    }
+    .form-group label i{
+      margin-right:6px;
+    }
+    .form-control{
+      width:100%;
+      padding:12px;
+      border-radius:12px;
+      border:1px solid var(--line2);
+      background:var(--card2);
+      color:var(--text);
+      font-size:14px;
+    }
+    .form-control:focus{
+      outline:none;
+      border-color:var(--mint);
+    }
+    .btn{
+      width:100%;
+      padding:14px;
+      border:none;
+      border-radius:14px;
+      background:linear-gradient(105deg,var(--mint),var(--mint2));
+      color:#062823;
+      font-weight:700;
+      font-size:14px;
+      cursor:pointer;
+      transition:transform 0.2s;
+    }
+    .btn:hover{
+      transform:translateY(-2px);
+    }
+    .loading{
+      display:none;
+      text-align:center;
+      padding:20px;
+      color:var(--mint);
+    }
+    .loading i{
+      animation:spin 1s linear infinite;
+    }
+    @keyframes spin{
+      0%{transform:rotate(0deg)}
+      100%{transform:rotate(360deg)}
+    }
+    .error-message{
+      display:block;
+      padding:12px;
+      background:rgba(251,113,133,0.1);
+      border:1px solid var(--red);
+      border-radius:12px;
+      color:var(--red);
+      font-size:12px;
+      margin-top:12px;
+    }
+    .result{
+      display:none;
+      margin-top:20px;
+      padding:16px;
+      background:var(--card2);
+      border-radius:16px;
+      border:1px solid var(--line2);
+    }
+    #generated-link{
+      word-break:break-all;
+      font-family:monospace;
+      font-size:12px;
+      margin-bottom:12px;
+      padding:8px;
+      background:rgba(0,0,0,0.2);
+      border-radius:8px;
+    }
+    .copy-btns{
+      display:flex;
+      gap:10px;
+    }
+    .copy-btn{
+      flex:1;
+      padding:10px;
+      border:none;
+      border-radius:10px;
+      background:linear-gradient(105deg,var(--violet),#a482ff);
+      color:white;
+      font-weight:600;
+      cursor:pointer;
+      font-size:12px;
+    }
+    .toast{
+      position:fixed;left:50%;bottom:20px;z-index:120;transform:translate(-50%,14px);opacity:0;pointer-events:none;
+      transition:.16s;padding:10px 14px;border-radius:999px;background:#123033;color:#fff;
+      border:1px solid var(--line2);font-size:11px;white-space:nowrap;max-width:calc(100vw - 24px);
+      overflow:hidden;text-overflow:ellipsis
+    }
+    .toast.show{opacity:1;transform:translate(-50%,0)}
+    @media(max-width:430px){
+      .top{align-items:flex-start}
+      .top-buttons{flex-wrap:wrap;justify-content:flex-end;max-width:154px}
+      .head-btn{padding:0 7px;font-size:7.5px}
+      .headline h1{font-size:27px}
+      .copy-btns{flex-direction:column}
+    }
+    @media(min-width:720px){
+      .app{padding:18px 16px 40px}
+      .hero{padding:18px;border-radius:30px}
+      .brand-title{font-size:23px}
+      .headline h1{font-size:43px}
+      .headline p{font-size:13px}
+    }
+  </style>
 </head>
 <body>
-    ${SIDEBAR_COMPONENT}
-    
-    <div class="container">
-        <div class="card">
-            <h1 class="title">
-                <i class="fas fa-link"></i> Sub Link Generator
-            </h1>
-            
-            <form id="subLinkForm">
-                <div class="form-group">
-                    <label for="app">
-                        <i class="fas fa-mobile-alt"></i>
-                        Aplikasi
-                    </label>
-                    <select id="app" class="form-control" required>
-                        <option value="v2ray">V2RAY</option>
-                        <option value="v2rayng">V2RAYNG</option>
-                        <option value="clash">CLASH</option>
-                        <option value="nekobox">NEKOBOX</option>
-                        <option value="singbox">SINGBOX</option>
-                        <option value="surfboard">SURFBOARD</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="bug">
-                        <i class="fas fa-bug"></i>
-                        Bug
-                    </label>
-                    <input type="text" id="bug" class="form-control" placeholder="Contoh: quiz.int.vidio.com" required>
-                </div>
-                <div class="form-group">
-                    <label for="configType">
-                        <i class="fas fa-cog"></i>
-                        Tipe Config
-                    </label>
-                    <select id="configType" class="form-control" required>
-                        <option value="vless">VLESS</option>
-                        <option value="trojan">TROJAN</option>
-                        <option value="shadowsocks">SHADOWSOCKS</option>
-                        <option value="mix">ALL CONFIG</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="tls">
-                        <i class="fas fa-lock"></i>
-                        TLS
-                    </label>
-                    <select id="tls" class="form-control">
-                        <option value="true">TRUE</option>
-                        <option value="false">FALSE</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="rootDomain">
-                        <i class="fas fa-globe"></i>
-                        Root Domain
-                    </label>
-                    <select id="rootDomain" class="form-control">
-                        ${(config.ZONES || []).map(z => `<option value="${z.name}" ${config.ROOT_DOMAIN === z.name ? 'selected' : ''}>${z.name}</option>`).join('\n                        ')}
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="wildcard">
-                        <i class="fas fa-asterisk"></i>
-                        Wildcard
-                    </label>
-                    <select id="wildcard" class="form-control">
-                        <option value="true">TRUE</option>
-                        <option value="false">FALSE</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="country">
-                        <i class="fas fa-globe"></i>
-                        Negara
-                    </label>
-                    <select id="country" class="form-control">
-                        <option value="all">ALL COUNTRY</option>
-                        <option value="random">RANDOM</option>
-                        ${countryOptions}
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="limit">
-                        <i class="fas fa-list-ol"></i>
-                        Jumlah Config
-                    </label>
-                    <input type="number" id="limit" class="form-control" min="1" max="100" placeholder="Maks 100" required>
-                </div>
-                <button type="submit" class="btn">
-                    <i class="fas fa-magic"></i>
-                    Generate Sub Link
-                </button>
-            </form>
-            <div id="loading" class="loading">
-                <i class="fas fa-spinner"></i>
-                Generating Link...
-            </div>
-            
-            <div id="error-message" class="error-message"></div>
-            <div id="result" class="result">
-                <p id="generated-link"></p>
-                <div class="copy-btns">
-                    <button id="copyLink" class="copy-btn">
-                        <i class="fas fa-copy"></i>
-                        Copy Link
-                    </button>
-                    <button id="openLink" class="copy-btn">
-                        <i class="fas fa-external-link-alt"></i>
-                        Buka Link
-                    </button>
-                </div>
-            </div>
+${SIDEBAR_COMPONENT}
+<main class="app">
+  <header class="hero">
+    <div class="top">
+      <div class="brand">
+        <div class="logo">
+          <svg viewBox="0 0 32 32" fill="none"><path d="M16 3 26 7v7.8c0 6.1-4.1 10.7-10 13.1C10.1 25.5 6 20.9 6 14.8V7l10-4Z" fill="rgba(255,255,255,.16)" stroke="#fff" stroke-width="1.4"/><path d="m19 6.8-9 11h5l-2.2 7.5L22 14.2h-5l2-7.4Z" fill="#fff"/></svg>
         </div>
+        <div><div class="micro">GEOVPN</div><div class="brand-title">Config Lifetime</div></div>
+      </div>
+      <div class="top-buttons">
+        <button class="theme" id="themeToggle" type="button" aria-label="Tema">
+          <svg class="moon" viewBox="0 0 24 24" fill="none"><path d="M20.3 15.5a8.6 8.6 0 0 1-11.8-11 9 9 0 1 0 11.8 11Z" stroke="currentColor" stroke-width="1.9"/></svg>
+          <svg class="sun" viewBox="0 0 24 24" fill="none"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0-6v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M19 5l-2 2M7 17l-2 2" stroke="currentColor" stroke-width="1.8"/></svg>
+        </button>
+      </div>
     </div>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const form = document.getElementById('subLinkForm');
-            const loadingEl = document.getElementById('loading');
-            const resultEl = document.getElementById('result');
-            const generatedLinkEl = document.getElementById('generated-link');
-            const copyLinkBtn = document.getElementById('copyLink');
-            const openLinkBtn = document.getElementById('openLink');
-            const errorMessageEl = document.getElementById('error-message');
-            const appSelect = document.getElementById('app');
-            const configTypeSelect = document.getElementById('configType');
-            const elements = {
-                app: document.getElementById('app'),
-                bug: document.getElementById('bug'),
-                configType: document.getElementById('configType'),
-                tls: document.getElementById('tls'),
-                wildcard: document.getElementById('wildcard'),
-                country: document.getElementById('country'),
-                limit: document.getElementById('limit'),
-                rootDomain: document.getElementById('rootDomain')
-            };
-            appSelect.addEventListener('change', () => {
-                const selectedApp = appSelect.value;
-                const shadowsocksOption = configTypeSelect.querySelector('option[value="shadowsocks"]');
-                if (selectedApp === 'surfboard') {
-                    configTypeSelect.value = 'trojan';
-                    shadowsocksOption.disabled = true;
-                } else {
-                    shadowsocksOption.disabled = false;
-                }
-            });
-            form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                
-                loadingEl.style.display = 'block';
-                resultEl.style.display = 'none';
-                errorMessageEl.textContent = '';
-                try {
-                    const requiredFields = ['bug', 'limit'];
-                    for (let field of requiredFields) {
-                        if (!elements[field].value.trim()) {
-                            throw new Error(\`Harap isi \${field === 'bug' ? 'Bug' : 'Jumlah Config'}\`);
-                        }
-                    }
-                    const params = new URLSearchParams({
-                        type: elements.configType.value,
-                        bug: elements.bug.value.trim(),
-                        tls: elements.tls.value,
-                        wildcard: elements.wildcard.value,
-                        limit: elements.limit.value,
-                        rootDomain: elements.rootDomain.value,
-                        ...(elements.country.value !== 'all' && { country: elements.country.value })
-                    });
-                    const generatedLink = \`/vpn/\${elements.app.value}?\${params.toString()}\`;
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                    loadingEl.style.display = 'none';
-                    resultEl.style.display = 'block';
-                    generatedLinkEl.textContent = \`https://\${window.location.hostname}\${generatedLink}\`;
-                    copyLinkBtn.onclick = async () => {
-                        try {
-                            await navigator.clipboard.writeText(\`https://\${window.location.hostname}\${generatedLink}\`);
-                            Swal.fire({
-                                icon: 'success',
-                                title: 'Berhasil!',
-                                text: 'Link berhasil disalin!',
-                                background: 'rgba(30, 41, 59, 0.9)',
-                                color: '#f1f5f9',
-                                iconColor: '#10b981',
-                                confirmButtonColor: '#3b82f6'
-                            });
-                        } catch {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Gagal!',
-                                text: 'Gagal menyalin link.',
-                                background: 'rgba(30, 41, 59, 0.9)',
-                                color: '#f1f5f9',
-                                iconColor: '#ef4444',
-                                confirmButtonColor: '#3b82f6'
-                            });
-                        }
-                    };
-                    openLinkBtn.onclick = () => {
-                        window.open(generatedLink, '_blank');
-                    };
-                } catch (error) {
-                    loadingEl.style.display = 'none';
-                    errorMessageEl.textContent = error.message;
-                    console.error(error);
-                }
-            });
-        });
-    </script>
+  </header>
+  
+  <div class="card">
+    <div class="headline">
+      <h1><span>Sub Link</span> Generator</h1>
+      <p>Generate your subscription link easily</p>
+    </div>
+    
+    <form id="subLinkForm">
+      <div class="form-group">
+        <label for="app">
+          <i class="fas fa-mobile-alt"></i>
+          Aplikasi
+        </label>
+        <select id="app" class="form-control" required>
+          <option value="v2ray">V2RAY</option>
+          <option value="v2rayng">V2RAYNG</option>
+          <option value="clash">CLASH</option>
+          <option value="nekobox">NEKOBOX</option>
+          <option value="singbox">SINGBOX</option>
+          <option value="surfboard">SURFBOARD</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="bug">
+          <i class="fas fa-bug"></i>
+          Bug
+        </label>
+        <input type="text" id="bug" class="form-control" placeholder="Contoh: quiz.int.vidio.com" required>
+      </div>
+      <div class="form-group">
+        <label for="configType">
+          <i class="fas fa-cog"></i>
+          Tipe Config
+        </label>
+        <select id="configType" class="form-control" required>
+          <option value="vless">VLESS</option>
+          <option value="trojan">TROJAN</option>
+          <option value="shadowsocks">SHADOWSOCKS</option>
+          <option value="mix">ALL CONFIG</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="tls">
+          <i class="fas fa-lock"></i>
+          TLS
+        </label>
+        <select id="tls" class="form-control">
+          <option value="true">TRUE</option>
+          <option value="false">FALSE</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="rootDomain">
+          <i class="fas fa-globe"></i>
+          Root Domain
+        </label>
+        <select id="rootDomain" class="form-control">
+          \${(config.ZONES || []).map(z => `<option value="\${z.name}" \${config.ROOT_DOMAIN === z.name ? 'selected' : ''}>\${z.name}</option>`).join('\\n                        ')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="wildcard">
+          <i class="fas fa-asterisk"></i>
+          Wildcard
+        </label>
+        <select id="wildcard" class="form-control">
+          <option value="true">TRUE</option>
+          <option value="false">FALSE</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="country">
+          <i class="fas fa-globe"></i>
+          Negara
+        </label>
+        <select id="country" class="form-control">
+          <option value="all">ALL COUNTRY</option>
+          <option value="random">RANDOM</option>
+          \${countryOptions}
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="limit">
+          <i class="fas fa-list-ol"></i>
+          Jumlah Config
+        </label>
+        <input type="number" id="limit" class="form-control" min="1" max="100" placeholder="Maks 100" required>
+      </div>
+      <button type="submit" class="btn">
+        Generate Sub Link
+      </button>
+    </form>
+    
+    <div id="loading" class="loading">
+      Generating Link...
+    </div>
+    
+    <div id="error-message" class="error-message"></div>
+    
+    <div id="result" class="result">
+      <p id="generated-link"></p>
+      <div class="copy-btns">
+        <button id="copyLink" class="copy-btn">
+          Copy Link
+        </button>
+        <button id="openLink" class="copy-btn">
+          Buka Link
+        </button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+(() => {
+  "use strict";
+  
+  const THEME_KEY = "theme";
+  
+  function toggleTheme() {
+    const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+    document.documentElement.dataset.theme = next;
+    localStorage.setItem(THEME_KEY, next);
+  }
+  
+  const themeButton = document.getElementById("themeToggle");
+  if (themeButton) {
+    themeButton.onclick = toggleTheme;
+  }
+})();
+</script>
+<script>
+
+document.addEventListener('DOMContentLoaded', () => {
+  const form = document.getElementById('subLinkForm');
+  const loadingEl = document.getElementById('loading');
+  const resultEl = document.getElementById('result');
+  const generatedLinkEl = document.getElementById('generated-link');
+  const copyLinkBtn = document.getElementById('copyLink');
+  const openLinkBtn = document.getElementById('openLink');
+  const errorMessageEl = document.getElementById('error-message');
+  const appSelect = document.getElementById('app');
+  const configTypeSelect = document.getElementById('configType');
+  const toast = document.getElementById('toast');
+  
+  function showToast(message, isError = false) {
+    toast.textContent = message;
+    toast.classList.add('show');
+    setTimeout(() => {
+      toast.classList.remove('show');
+    }, 3000);
+  }
+  
+  const elements = {
+    app: document.getElementById('app'),
+    bug: document.getElementById('bug'),
+    configType: document.getElementById('configType'),
+    tls: document.getElementById('tls'),
+    wildcard: document.getElementById('wildcard'),
+    country: document.getElementById('country'),
+    limit: document.getElementById('limit'),
+    rootDomain: document.getElementById('rootDomain')
+  };
+  
+  appSelect.addEventListener('change', () => {
+    const selectedApp = appSelect.value;
+    const shadowsocksOption = configTypeSelect.querySelector('option[value="shadowsocks"]');
+    if (selectedApp === 'surfboard') {
+      configTypeSelect.value = 'trojan';
+      if(shadowsocksOption) shadowsocksOption.disabled = true;
+    } else {
+      if(shadowsocksOption) shadowsocksOption.disabled = false;
+    }
+  });
+  
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    loadingEl.style.display = 'block';
+    resultEl.style.display = 'none';
+    errorMessageEl.textContent = '';
+    
+    try {
+      const requiredFields = ['bug', 'limit'];
+      for (let field of requiredFields) {
+        if (!elements[field].value.trim()) {
+          throw new Error(\`Harap isi \${field === 'bug' ? 'Bug' : 'Jumlah Config'}\`);
+        }
+      }
+      
+      const params = new URLSearchParams({
+        type: elements.configType.value,
+        bug: elements.bug.value.trim(),
+        tls: elements.tls.value,
+        wildcard: elements.wildcard.value,
+        limit: elements.limit.value,
+        rootDomain: elements.rootDomain.value,
+        ...(elements.country.value !== 'all' && { country: elements.country.value })
+      });
+      
+      const generatedLink = \`/vpn/\${elements.app.value}?\${params.toString()}\`;
+      
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      loadingEl.style.display = 'none';
+      resultEl.style.display = 'block';
+      generatedLinkEl.textContent = \`https://\${window.location.hostname}\${generatedLink}\`;
+      
+      copyLinkBtn.onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(\`https://\${window.location.hostname}\${generatedLink}\`);
+          showToast('✅ Link berhasil disalin!');
+        } catch {
+          showToast('❌ Gagal menyalin link', true);
+        }
+      };
+      
+      openLinkBtn.onclick = () => {
+        window.open(generatedLink, '_blank');
+      };
+      
+    } catch (error) {
+      loadingEl.style.display = 'none';
+      errorMessageEl.textContent = error.message;
+      console.error(error);
+    }
+  });
+});
+</script>
 </body>
 </html>
- `;
+ \`;
   return html;
-}
+  }
+  
 async function handleWebRequest(request, env, config) {
     const cfApi = new CloudflareApi(config);
     let dynamicDomains = [];
