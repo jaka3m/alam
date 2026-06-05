@@ -76,7 +76,6 @@ async function getScriptConfig(env, request) {
 
   return {
     ROOT_DOMAIN: rootDomain,
-    SERVICE_NAME: serviceName,
     PAGES_HOSTNAME: `${serviceName}.pages.dev`,
     API_KEY: tempConfig.API_KEY,
     API_EMAIL: tempConfig.API_EMAIL,
@@ -151,7 +150,7 @@ class CloudflareApi {
     try {
       await ensureCfConfig(this.config);
       if (!cachedAccountId) return [];
-      const url = `https://api.cloudflare.com/client/v4/accounts/${cachedAccountId}/pages/projects/${this.config.SERVICE_NAME}/domains`;
+      const url = `https://api.cloudflare.com/client/v4/accounts/${cachedAccountId}/pages/projects/${(this.config.PAGES_HOSTNAME ? this.config.PAGES_HOSTNAME.split('.')[0] : 'gampangan')}/domains`;
       const res = await fetch(url, {
         headers: this.headers,
       });
@@ -170,7 +169,7 @@ class CloudflareApi {
     try {
       await ensureCfConfig(this.config);
       if (!cachedAccountId) return null;
-      const url = `https://api.cloudflare.com/client/v4/accounts/${cachedAccountId}/pages/projects/${this.config.SERVICE_NAME}/domains/${domainName}`;
+      const url = `https://api.cloudflare.com/client/v4/accounts/${cachedAccountId}/pages/projects/${(this.config.PAGES_HOSTNAME ? this.config.PAGES_HOSTNAME.split('.')[0] : 'gampangan')}/domains/${domainName}`;
       const res = await fetch(url, {
         headers: this.headers,
       });
@@ -230,7 +229,7 @@ class CloudflareApi {
             console.log(`[Register] Domain already in Pages project (Status: ${existing.status})`);
           } else {
             console.log(`[Register] Step 1: Adding to Pages project...`);
-            const url = `https://api.cloudflare.com/client/v4/accounts/${cachedAccountId}/pages/projects/${this.config.SERVICE_NAME}/domains`;
+            const url = `https://api.cloudflare.com/client/v4/accounts/${cachedAccountId}/pages/projects/${(this.config.PAGES_HOSTNAME ? this.config.PAGES_HOSTNAME.split('.')[0] : 'gampangan')}/domains`;
             const res = await fetch(url, {
               method: "POST",
               body: JSON.stringify({ name: currentDomain }),
@@ -246,7 +245,7 @@ class CloudflareApi {
 
           // 2. Create/Update DNS CNAME
           console.log(`[Register] Step 2: Provisioning DNS record...`);
-          const targetContent = `${this.config.SERVICE_NAME}.pages.dev`;
+          const targetContent = `${(this.config.PAGES_HOSTNAME ? this.config.PAGES_HOSTNAME.split('.')[0] : 'gampangan')}.pages.dev`;
           const dnsId = await this.createDnsRecord(currentDomain, targetContent);
           if (!dnsId) {
             console.warn(`[Register] Step 2 warning: DNS record creation did not return an ID for ${currentDomain}`);
@@ -293,7 +292,7 @@ class CloudflareApi {
     try {
       await ensureCfConfig(this.config);
       if (!cachedAccountId) return 500;
-      const url = `https://api.cloudflare.com/client/v4/accounts/${cachedAccountId}/pages/projects/${this.config.SERVICE_NAME}/domains/${domainName}`;
+      const url = `https://api.cloudflare.com/client/v4/accounts/${cachedAccountId}/pages/projects/${(this.config.PAGES_HOSTNAME ? this.config.PAGES_HOSTNAME.split('.')[0] : 'gampangan')}/domains/${domainName}`;
       const res = await fetch(url, {
         method: "DELETE",
         headers: this.headers,
@@ -317,7 +316,7 @@ class CloudflareApi {
     try {
       await ensureCfConfig(this.config);
       if (!cachedAccountId) return 500;
-      const url = `https://api.cloudflare.com/client/v4/accounts/${cachedAccountId}/pages/projects/${this.config.SERVICE_NAME}/domains/${domainName}`;
+      const url = `https://api.cloudflare.com/client/v4/accounts/${cachedAccountId}/pages/projects/${(this.config.PAGES_HOSTNAME ? this.config.PAGES_HOSTNAME.split('.')[0] : 'gampangan')}/domains/${domainName}`;
       const res = await fetch(url, {
         method: "PATCH",
         headers: this.headers,
@@ -1318,7 +1317,7 @@ export default {
   console.log(`No WebSocket match for path: ${url.pathname}`);
 }
       const rootDomain = config.ROOT_DOMAIN;
-      const serviceName = config.SERVICE_NAME;
+
       const type = url.searchParams.get('type') || atob('bWl4');
       const tls = url.searchParams.get('tls') !== 'false';
       const wildcard = url.searchParams.get('wildcard') === 'true';
@@ -3729,7 +3728,7 @@ function buildCountryFlag(page) {
     };
     const url = new URL(request.url);
     const rootDomain = config.ROOT_DOMAIN || url.hostname.replace(/^[^.]+\./, '');
-    const serviceName = config.SERVICE_NAME;
+
     const hostName = rootDomain;
     const page = parseInt(url.searchParams.get('page')) || 1;
     const searchQuery = url.searchParams.get('search') || '';
