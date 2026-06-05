@@ -3,6 +3,7 @@ import { connect } from "cloudflare:sockets";
 let cachedAccountId = null;
 let cachedZoneId = {};
 let cachedZonesList = null;
+let cachedDomainList = null;
 
 const proxyListURL = 'https://r2.jamu.workers.dev/raw/proxyList.txt';
 
@@ -148,6 +149,7 @@ class CloudflareApi {
     };
   }
   async getDomainList() {
+    if (cachedDomainList) return cachedDomainList;
     try {
       await ensureCfConfig(this.config);
       if (!cachedAccountId) return [];
@@ -157,7 +159,8 @@ class CloudflareApi {
       });
       if (res.status == 200) {
         const respJson = await res.json();
-        return respJson.result || [];
+        cachedDomainList = respJson.result || [];
+        return cachedDomainList;
       }
       console.error(`Get list failed: ${res.status} ${await res.text()}`);
       return [];
@@ -1269,34 +1272,58 @@ button:active {
 const WS_READY_STATE_OPEN = 1;
 const WS_READY_STATE_CLOSING = 2;
 async function getProxyList(forceReload = false) {
-  if (!cachedProxyList.length || forceReload) {
-    if (!proxyListURL) {
-      throw new Error("No Proxy List URL Provided!");
-    }
-    try {
-      const proxyBank = await fetch(proxyListURL);
-      if (proxyBank.status === 200) {
-        const text = await proxyBank.text();
-        const proxyString = (text || "").split("\n").filter(Boolean);
-        cachedProxyList = proxyString
-          .map((entry) => {
-            const [proxyIP, proxyPort, country, org] = entry.split(",");
-            return {
-              proxyIP: proxyIP || "Unknown",
-              proxyPort: proxyPort || "Unknown",
-              country: (country || "Unknown").toUpperCase(),
-              org: org || "Unknown Org",
-            };
-          })
-          .filter(Boolean);
-        console.log(`Fetched ${cachedProxyList.length} proxies from R2.`);
-      } else {
-        console.error("Failed to fetch proxy list:", proxyBank.status);
-      }
-    } catch (e) {
-      console.error("Error fetching proxy list:", e);
+  const cache = caches.default;
+  const cacheKey = new Request(new URL(proxyListURL).toString());
+
+  if (!forceReload) {
+    const cachedResponse = await cache.match(cacheKey);
+    if (cachedResponse) {
+      const proxies = await cachedResponse.json();
+      cachedProxyList = proxies;
+      return proxies;
     }
   }
+
+  if (!proxyListURL) {
+    throw new Error("No Proxy List URL Provided!");
+  }
+
+  try {
+    const proxyBank = await fetch(proxyListURL);
+    if (proxyBank.status === 200) {
+      const text = await proxyBank.text();
+      const proxyString = (text || "").split("\n").filter(Boolean);
+      const proxies = proxyString
+        .map((entry) => {
+          const [proxyIP, proxyPort, country, org] = entry.split(",");
+          return {
+            proxyIP: proxyIP || "Unknown",
+            proxyPort: proxyPort || "Unknown",
+            country: (country || "Unknown").toUpperCase(),
+            org: org || "Unknown Org",
+          };
+        })
+        .filter(Boolean);
+
+      console.log(`Fetched ${proxies.length} proxies from R2.`);
+
+      const responseToCache = new Response(JSON.stringify(proxies), {
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "public, max-age=3600"
+        },
+      });
+
+      await cache.put(cacheKey, responseToCache);
+      cachedProxyList = proxies;
+      return proxies;
+    } else {
+      console.error("Failed to fetch proxy list:", proxyBank.status);
+    }
+  } catch (e) {
+    console.error("Error fetching proxy list:", e);
+  }
+
   return cachedProxyList;
 }
 async function reverseProxy(request, target) {
@@ -1340,6 +1367,7 @@ export default {
               return new Response('Domain is required', { status: 400 });
             }
             const status = await cfApi.registerDomain(domain, multi);
+            cachedDomainList = null; // Invalidate cache
             return new Response(null, { status });
           } catch (e) {
             return new Response('Invalid JSON', { status: 400 });
@@ -1355,6 +1383,7 @@ export default {
                 return new Response('Invalid password', { status: 401 });
             }
             const status = await cfApi.deleteDomain(domain);
+            cachedDomainList = null; // Invalidate cache
             return new Response(null, { status });
           } catch (e) {
             return new Response('Invalid JSON', { status: 400 });
@@ -4196,7 +4225,7 @@ function buildCountryFlag(page) {
                     <div class="endpoint">${config.ip}:${config.port}</div>
                 </div>
             </div>
-            <div class="check-wrap proxy-status">
+            <div class="check-wrap proxy-status" onclick="checkSingleProxy(this.closest('.server')); event.stopPropagation();" style="cursor: pointer;">
                 <button class="check checking"><i></i>CHECKING</button>
             </div>
             <div class="provider">
@@ -4919,7 +4948,14 @@ function buildCountryFlag(page) {
       </header>
 
       <section class="servers">
-        <div class="server-head"><h2>Server</h2><span class="count" id="count">${totalFilteredConfigs}</span></div>
+        <div class="server-head">
+          <h2>Server</h2>
+          <span class="count" id="count" title="Total Server">${totalFilteredConfigs}</span>
+          <span class="count active-count" id="active-count" title="IP Aktif" style="background: rgba(34, 218, 148, 0.1); color: var(--green); border-color: rgba(34, 218, 148, 0.2); margin-left: 8px;">0</span>
+          <button onclick="checkAllProxies()" class="head-btn" style="margin-left: auto; height: 28px; cursor: pointer;">
+            <i class="fa fa-sync-alt mr-1"></i> CEK SEMUA
+          </button>
+        </div>
         <div class="list" id="list">
                 ${cardsHTML}
         </div>
@@ -4949,65 +4985,86 @@ function buildCountryFlag(page) {
             });
         </script>
                 <script>
-                document.addEventListener('DOMContentLoaded', () => {
-                    const rows = document.querySelectorAll('.proxy-row');
-                    const checkAllProxies = async () => {
-                        for (const row of rows) {
-                            const ipPort = row.dataset.ipPort;
-                            const checkWrap = row.querySelector('.check-wrap');
-                            const metricContainer = row.querySelector('.metric');
-                            
-                            // bypass the template parser failure when we save _worker.js
-                            const healthCheckUrl = "/geo-ip?ip=" + ipPort;
-                            
-                            try {
-                                const response = await fetch(healthCheckUrl);
-                                if (!response.ok) throw new Error('Network response was not ok');
-                                
-                                const data = await response.json();
-                                const status = data.status || 'UNKNOWN';
-                                let delay = parseFloat(data.delay) || NaN;
-                                let speed = data.speed_est || '-';
-                                
-                                let statusHTML = '';
-                                switch (status) {
-                                    case 'ACTIVE':
-                                        statusHTML = '<button class="check active"><i></i>ACTIVE</button>';
-                                        break;
-                                    case 'DEAD':
-                                        statusHTML = '<button class="check inactive"><i></i>INACTIVE</button>';
-                                        break;
-                                    default:
-                                        statusHTML = '<button class="check inactive" style="color: orange; border-color: rgba(255,165,0,.22); background: rgba(255,165,0,.10);"><i></i>UNKNOWN</button>';
-                                }
-                                
-                                if (checkWrap) checkWrap.innerHTML = statusHTML;
-                                
-                                if (metricContainer) {
-                                    let delayText = isNaN(delay) ? 'N/A' : Math.round(delay) + 'ms';
-                                    metricContainer.innerHTML = '<span>Delay: ' + delayText + '</span><span class="pipe">|</span><span class="speed">Speed: ' + speed + '</span>';
-                                }
-                            } catch (error) {
-                                console.error('Health check error for ' + ipPort + ':', error);
-                                if (checkWrap) {
-                                    checkWrap.innerHTML = '<button class="check inactive" style="color: cyan; border-color: rgba(0,255,255,.22); background: rgba(0,255,255,.10);"><i></i>ERROR</button>';
-                                }
-                                if (metricContainer) {
-                                    metricContainer.innerHTML = '<span>Delay: ! ms</span><span class="pipe">|</span><span class="speed">Speed: -</span>';
-                                }
-                            }
-                            await new Promise(resolve => setTimeout(resolve, 200)); // 200ms delay between checks
-                        }
-                    };
-                    checkAllProxies();
+                async function checkProxyStatus(row) {
+                    const ipPort = row.dataset.ipPort;
+                    const checkWrap = row.querySelector('.check-wrap');
+                    const metricContainer = row.querySelector('.metric');
                     
-                    const statusHeader = document.querySelector('thead tr th:nth-child(6)'); // Kolom "STATUS"
-                    if(statusHeader) {
-                        statusHeader.style.cursor = 'pointer';
-                        statusHeader.addEventListener('click', () => {
-                            checkAllProxies();
-                        });
+                    if (checkWrap) {
+                        checkWrap.innerHTML = '<button class="check checking"><i></i>MENGECEK...</button>';
                     }
+
+                    const healthCheckUrl = "/geo-ip?ip=" + ipPort;
+
+                    try {
+                        const response = await fetch(healthCheckUrl);
+                        if (!response.ok) throw new Error('Network response was not ok');
+
+                        const data = await response.json();
+                        const status = data.status || 'UNKNOWN';
+                        let delay = parseFloat(data.delay) || NaN;
+                        let speed = data.speed_est || '-';
+
+                        let statusHTML = '';
+                        switch (status) {
+                            case 'ACTIVE':
+                                statusHTML = '<button class="check active"><i></i>AKTIF</button>';
+                                row.classList.add('is-active');
+                                break;
+                            case 'DEAD':
+                                statusHTML = '<button class="check inactive"><i></i>MATI</button>';
+                                row.classList.remove('is-active');
+                                break;
+                            default:
+                                statusHTML = '<button class="check inactive" style="color: orange; border-color: rgba(255,165,0,.22); background: rgba(255,165,0,.10);"><i></i>UNKNOWN</button>';
+                                row.classList.remove('is-active');
+                        }
+
+                        if (checkWrap) checkWrap.innerHTML = statusHTML;
+
+                        if (metricContainer) {
+                            let delayText = isNaN(delay) ? 'N/A' : Math.round(delay) + 'ms';
+                            metricContainer.innerHTML = '<span>Delay: ' + delayText + '</span><span class="pipe">|</span><span class="speed">Speed: ' + speed + '</span>';
+                        }
+                    } catch (error) {
+                        console.error('Health check error for ' + ipPort + ':', error);
+                        if (checkWrap) {
+                            checkWrap.innerHTML = '<button class="check inactive" style="color: cyan; border-color: rgba(0,255,255,.22); background: rgba(0,255,255,.10);"><i></i>ERROR</button>';
+                        }
+                        row.classList.remove('is-active');
+                    }
+                    updateActiveCount();
+                }
+
+                function updateActiveCount() {
+                    const activeCount = document.querySelectorAll('.proxy-row.is-active').length;
+                    const counterEl = document.getElementById('active-count');
+                    if (counterEl) {
+                        counterEl.textContent = activeCount;
+                    }
+                }
+
+                async function checkSingleProxy(row) {
+                    await checkProxyStatus(row);
+                }
+
+                async function checkAllProxies() {
+                    const rows = Array.from(document.querySelectorAll('.proxy-row'));
+                    const concurrencyLimit = 10;
+                    const queue = [...rows];
+
+                    const workers = Array(Math.min(concurrencyLimit, queue.length)).fill(null).map(async () => {
+                        while (queue.length > 0) {
+                            const row = queue.shift();
+                            if (row) await checkProxyStatus(row);
+                        }
+                    });
+
+                    await Promise.all(workers);
+                }
+
+                document.addEventListener('DOMContentLoaded', () => {
+                    checkAllProxies();
                 });
                 </script>
                 <div class="sticky-pagination-container">
