@@ -4219,7 +4219,10 @@ function buildCountryFlag(page) {
         cardsHTML += `
         <article class="server proxy-row" data-ip-port="${ipPort}">
             <div class="identity">
-                <div class="flag">${getFlagEmoji(config.countryCode)}</div>
+                <div class="flag" style="position: relative;">
+                    ${getFlagEmoji(config.countryCode)}
+                    <div class="status-indicator" style="position:absolute; bottom:-2px; right:-2px; width:12px; height:12px; border-radius:50%; border:2px solid var(--card); background:gray;"></div>
+                </div>
                 <div>
                     <div class="country">${config.countryCode}</div>
                     <div class="endpoint">${config.ip}:${config.port}</div>
@@ -4485,6 +4488,8 @@ function buildCountryFlag(page) {
       background:linear-gradient(145deg,var(--card),var(--card2));display:grid;gap:10px
     }
     .server.open{border-color:var(--line2)}
+    .server.is-active{border-color: var(--green) !important; box-shadow: 0 0 10px rgba(34, 218, 148, 0.2);}
+    .server.is-inactive{border-color: var(--red) !important; box-shadow: 0 0 10px rgba(251, 113, 133, 0.2);}
     .identity{display:flex;align-items:center;gap:10px;min-width:0;padding-right:110px}
     .flag{
       width:43px;height:43px;flex:0 0 43px;border-radius:13px;border:1px solid var(--line);
@@ -4952,6 +4957,7 @@ function buildCountryFlag(page) {
           <h2>Server</h2>
           <span class="count" id="count" title="Total Server">${totalFilteredConfigs}</span>
           <span class="count active-count" id="active-count" title="IP Aktif" style="background: rgba(34, 218, 148, 0.1); color: var(--green); border-color: rgba(34, 218, 148, 0.2); margin-left: 8px;">0</span>
+          <span class="count inactive-count" id="inactive-count" title="IP Mati" style="background: rgba(251, 113, 133, 0.1); color: var(--red); border-color: rgba(251, 113, 133, 0.2); margin-left: 8px;">0</span>
           <button onclick="checkAllProxies()" class="head-btn" style="margin-left: auto; height: 28px; cursor: pointer;">
             <i class="fa fa-sync-alt mr-1"></i> CEK SEMUA
           </button>
@@ -5010,14 +5016,19 @@ function buildCountryFlag(page) {
                             case 'ACTIVE':
                                 statusHTML = '<button class="check active"><i></i>AKTIF</button>';
                                 row.classList.add('is-active');
+                                row.classList.remove('is-inactive');
+                                row.querySelector('.status-indicator').style.background = 'var(--green)';
                                 break;
                             case 'DEAD':
                                 statusHTML = '<button class="check inactive"><i></i>MATI</button>';
                                 row.classList.remove('is-active');
+                                row.classList.add('is-inactive');
+                                row.querySelector('.status-indicator').style.background = 'var(--red)';
                                 break;
                             default:
                                 statusHTML = '<button class="check inactive" style="color: orange; border-color: rgba(255,165,0,.22); background: rgba(255,165,0,.10);"><i></i>UNKNOWN</button>';
                                 row.classList.remove('is-active');
+                                row.classList.remove('is-inactive');
                         }
 
                         if (checkWrap) checkWrap.innerHTML = statusHTML;
@@ -5033,15 +5044,18 @@ function buildCountryFlag(page) {
                         }
                         row.classList.remove('is-active');
                     }
-                    updateActiveCount();
+                    updateCounts();
                 }
 
-                function updateActiveCount() {
+                function updateCounts() {
                     const activeCount = document.querySelectorAll('.proxy-row.is-active').length;
-                    const counterEl = document.getElementById('active-count');
-                    if (counterEl) {
-                        counterEl.textContent = activeCount;
-                    }
+                    const inactiveCount = document.querySelectorAll('.proxy-row.is-inactive').length;
+
+                    const activeEl = document.getElementById('active-count');
+                    const inactiveEl = document.getElementById('inactive-count');
+
+                    if (activeEl) activeEl.textContent = activeCount;
+                    if (inactiveEl) inactiveEl.textContent = inactiveCount;
                 }
 
                 async function checkSingleProxy(row) {
