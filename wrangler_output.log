@@ -1,0 +1,17 @@
+
+ ⛅️ wrangler 4.98.0
+───────────────────
+
+Cloudflare collects anonymous telemetry about your usage of Wrangler. Learn more at https://github.com/cloudflare/workers-sdk/tree/main/packages/wrangler/telemetry.md
+⎔ Starting local server...
+[wrangler:info] Ready on http://localhost:8787
+Fetching proxy list from origin...
+Fetched 10294 proxies.
+[wrangler:info] GET / 200 OK (1006ms)
+[31m✘ [41;31m[[41;97mERROR[41;31m][0m [1mkj::getCaughtExceptionAsKj() = kj/async-io-unix.c++:186: disconnected: ::write(fd, buffer.begin(), buffer.size()): Broken pipe[0m
+
+  stack: /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/node_modules/@cloudflare/workerd-linux-64/bin/workerd@528e871 /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/node_modules/@cloudflare/workerd-linux-64/bin/workerd@528f521 /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/node_modules/@cloudflare/workerd-linux-64/bin/workerd@373660f /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/node_modules/@cloudflare/workerd-linux-64/bin/workerd@3736855 /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/node_modules/@cloudflare/workerd-linux-64/bin/workerd@5251df8 /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/node_modules/@cloudflare/workerd-linux-64/bin/workerd@378ed93 /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/node_modules/@cloudflare/workerd-linux-64/bin/workerd@37928e7 /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/node_modules/@cloudflare/workerd-linux-64/bin/workerd@3792c78 /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/node_modules/@cloudflare/workerd-linux-64/bin/workerd@2e2e720 /home/jules/.nvm/versions/node/v22.22.1/lib/node_modules/wrangler/node_modules/@cloudflare/workerd-linux-64/bin/workerd@20114c7
+
+
+⎔ Reloading local server...
+⎔ Local server updated and ready
