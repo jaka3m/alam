@@ -3,7 +3,6 @@ import { connect } from "cloudflare:sockets";
 let cachedAccountId = null;
 let cachedZoneId = {};
 let cachedZonesList = null;
-let cachedDomainList = null;
 
 const proxyListURL = 'https://r2.jamu.workers.dev/raw/proxyList.txt';
 
@@ -149,7 +148,6 @@ class CloudflareApi {
     };
   }
   async getDomainList() {
-    if (cachedDomainList) return cachedDomainList;
     try {
       await ensureCfConfig(this.config);
       if (!cachedAccountId) return [];
@@ -159,8 +157,7 @@ class CloudflareApi {
       });
       if (res.status == 200) {
         const respJson = await res.json();
-        cachedDomainList = respJson.result || [];
-        return cachedDomainList;
+        return respJson.result || [];
       }
       console.error(`Get list failed: ${res.status} ${await res.text()}`);
       return [];
@@ -687,7 +684,7 @@ button:active {
 }
 </style>
 
-<div x-data="{ sidebarOpen: false, activeMenu: 'create', showSearch: ['/web', '/'].includes(window.location.pathname), wildcardTab: 'list' }" @keydown.escape.window="sidebarOpen = false" class="relative">
+<div x-data="spaApp()" @keydown.escape.window="sidebarOpen = false" class="relative">
     <script>
         function toggleDarkMode() {
             if (document.documentElement.classList.contains('dark')) {
@@ -698,17 +695,137 @@ button:active {
                 localStorage.setItem('theme', 'dark');
             }
         }
-    document.addEventListener('DOMContentLoaded', () => {
-        const rootDomain = new URLSearchParams(window.location.search).get('rootDomain');
-        if (rootDomain) {
-            document.querySelectorAll('a.menu-item').forEach(el => {
-                const href = el.getAttribute('href');
-                if (href && (href === '/web' || href === '/vpn')) {
-                    el.setAttribute('href', href + '?rootDomain=' + encodeURIComponent(rootDomain));
+
+        function spaApp() {
+            return {
+                sidebarOpen: false,
+                activeMenu: 'create',
+                showSearch: ['/web', '/'].includes(window.location.pathname),
+                wildcardTab: 'list',
+
+                init() {
+                    this.updateActiveMenu();
+                    window.addEventListener('popstate', () => {
+                        this.loadPage(window.location.pathname, false);
+                    });
+
+                    const rootDomain = new URLSearchParams(window.location.search).get('rootDomain');
+                    if (rootDomain) {
+                        this.updateLinksWithRootDomain(rootDomain);
+                    }
+                },
+
+                updateActiveMenu() {
+                    const path = window.location.pathname;
+                    if (path === '/web' || path === '/') this.activeMenu = 'create';
+                    else if (path === '/vpn') this.activeMenu = 'converter';
+                    else if (path === '/kuota') this.activeMenu = 'quota';
+                    else if (path === '/checker') this.activeMenu = 'checker';
+                    else if (path === '/stats') this.activeMenu = 'traffic';
+                    this.showSearch = ['/web', '/'].includes(path);
+                },
+
+                updateLinksWithRootDomain(rootDomain) {
+                    document.querySelectorAll('a.menu-item').forEach(el => {
+                        const href = el.getAttribute('href');
+                        if (href && (href === '/web' || href === '/vpn')) {
+                            el.setAttribute('href', href + '?rootDomain=' + encodeURIComponent(rootDomain));
+                        }
+                    });
+                },
+
+                async loadPage(url, push = true) {
+                    const mainApp = document.querySelector('main.app') || document.querySelector('.container');
+
+                    if (!mainApp) {
+                        window.location.href = url;
+                        return;
+                    }
+
+                    mainApp.style.opacity = '0.4';
+                    mainApp.style.transition = 'opacity 0.2s';
+
+                    try {
+                        const response = await fetch(url, { headers: { 'X-SPA': 'true' } });
+                        if (!response.ok) throw new Error('Load failed');
+                        const html = await response.text();
+
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(html, 'text/html');
+
+                        // Handle potential external dependencies in <head>
+                        const links = doc.querySelectorAll('link[rel="stylesheet"]');
+                        for (const link of links) {
+                            if (!document.querySelector(`link[href="${link.href}"]`)) {
+                                const newLink = document.createElement('link');
+                                newLink.rel = 'stylesheet';
+                                newLink.href = link.href;
+                                document.head.appendChild(newLink);
+                            }
+                        }
+
+                        const newContent = doc.querySelector('main.app') || doc.querySelector('.container');
+
+                        if (newContent) {
+                            mainApp.innerHTML = newContent.innerHTML;
+                            mainApp.className = newContent.className;
+
+                            // Re-execute scripts
+                            const scripts = doc.querySelectorAll('script');
+                            for (const oldScript of scripts) {
+                                if (oldScript.src && (oldScript.src.includes('alpine') || oldScript.src.includes('tailwindcss'))) continue;
+
+                                if (oldScript.src) {
+                                    if (!document.querySelector(`script[src="${oldScript.src}"]`)) {
+                                        await new Promise((resolve) => {
+                                            const s = document.createElement('script');
+                                            s.src = oldScript.src;
+                                            s.async = false;
+                                            s.onload = resolve;
+                                            s.onerror = resolve;
+                                            document.head.appendChild(s);
+                                        });
+                                    }
+                                } else {
+                                    const newScript = document.createElement('script');
+                                    newScript.textContent = oldScript.textContent;
+                                    document.body.appendChild(newScript);
+                                }
+                            }
+
+                            if (push) history.pushState(null, '', url);
+                            this.updateActiveMenu();
+                            this.sidebarOpen = false;
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+
+                            document.dispatchEvent(new CustomEvent('spa-page-loaded', { detail: { url } }));
+                        } else {
+                            window.location.href = url;
+                        }
+                    } catch (e) {
+                        console.error('SPA Navigation Error:', e);
+                        window.location.href = url;
+                    } finally {
+                        mainApp.style.opacity = '1';
+                    }
                 }
-            });
+            }
         }
-    });
+
+        document.addEventListener('click', e => {
+            const link = e.target.closest('a.menu-item');
+            if (link && link.getAttribute('href') && !link.getAttribute('href').startsWith('#') && !link.getAttribute('target')) {
+                const url = link.getAttribute('href');
+                if (url.startsWith('/') && !url.startsWith('//')) {
+                    e.preventDefault();
+                    const appEl = document.querySelector('[x-data="spaApp()"]');
+                    if (appEl && window.Alpine) {
+                        const data = window.Alpine.closestRoot(appEl)._x_dataStack[0];
+                        data.loadPage(url);
+                    }
+                }
+            }
+        });
     </script>
     <button
         @click="sidebarOpen = true"
@@ -1274,56 +1391,27 @@ const WS_READY_STATE_CLOSING = 2;
 async function getProxyList(forceReload = false) {
   const cache = caches.default;
   const cacheKey = new Request(new URL(proxyListURL).toString());
-
   if (!forceReload) {
     const cachedResponse = await cache.match(cacheKey);
-    if (cachedResponse) {
-      const proxies = await cachedResponse.json();
-      cachedProxyList = proxies;
-      return proxies;
-    }
+    if (cachedResponse) return await cachedResponse.json();
   }
-
-  if (!proxyListURL) {
-    throw new Error("No Proxy List URL Provided!");
-  }
-
+  if (!proxyListURL) throw new Error("No Proxy List URL Provided!");
   try {
     const proxyBank = await fetch(proxyListURL);
     if (proxyBank.status === 200) {
       const text = await proxyBank.text();
-      const proxyString = (text || "").split("\n").filter(Boolean);
-      const proxies = proxyString
-        .map((entry) => {
-          const [proxyIP, proxyPort, country, org] = entry.split(",");
-          return {
-            proxyIP: proxyIP || "Unknown",
-            proxyPort: proxyPort || "Unknown",
-            country: (country || "Unknown").toUpperCase(),
-            org: org || "Unknown Org",
-          };
-        })
-        .filter(Boolean);
-
-      console.log(`Fetched ${proxies.length} proxies from R2.`);
-
+      const proxies = (text || "").split("\n").filter(Boolean).map((entry) => {
+        const [proxyIP, proxyPort, country, org] = entry.split(",");
+        return { proxyIP: proxyIP || "Unknown", proxyPort: proxyPort || "Unknown", country: (country || "Unknown").toUpperCase(), org: org || "Unknown Org" };
+      }).filter(Boolean);
       const responseToCache = new Response(JSON.stringify(proxies), {
-        headers: {
-          "Content-Type": "application/json",
-          "Cache-Control": "public, max-age=3600"
-        },
+        headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=3600" },
       });
-
       await cache.put(cacheKey, responseToCache);
       cachedProxyList = proxies;
       return proxies;
-    } else {
-      console.error("Failed to fetch proxy list:", proxyBank.status);
     }
-  } catch (e) {
-    console.error("Error fetching proxy list:", e);
-  }
-
+  } catch (e) { console.error("Error fetching proxy list:", e); }
   return cachedProxyList;
 }
 async function reverseProxy(request, target) {
@@ -1367,7 +1455,6 @@ export default {
               return new Response('Domain is required', { status: 400 });
             }
             const status = await cfApi.registerDomain(domain, multi);
-            cachedDomainList = null; // Invalidate cache
             return new Response(null, { status });
           } catch (e) {
             return new Response('Invalid JSON', { status: 400 });
@@ -1383,7 +1470,6 @@ export default {
                 return new Response('Invalid password', { status: 401 });
             }
             const status = await cfApi.deleteDomain(domain);
-            cachedDomainList = null; // Invalidate cache
             return new Response(null, { status });
           } catch (e) {
             return new Response('Invalid JSON', { status: 400 });
@@ -1403,7 +1489,9 @@ export default {
         }
         return new Response('Method Not Allowed', { status: 405 });
       }
+      const isSpa = request.headers.get("X-SPA") === "true";
       const myurl = "check.gpj3.web.id";
+      const isSpa = request.headers.get('X-SPA') === 'true';
       const upgradeHeader = request.headers.get("Upgrade");
       const CHECK_API_BASE = `https://${myurl}`;
       const CHECK_API = `${CHECK_API_BASE}/check?ip=`;
@@ -1515,18 +1603,18 @@ export default {
           configs = await generateV2raySub(type, bugs, geo81, tls, country, limit);
           break;
         case "/web":
-          return await handleWebRequest(request, env, config);
+          return await handleWebRequest(request, env, config, isSpa);
           break;
         case "/":
-          return await handleWebRequest(request, env, config);
+          return await handleWebRequest(request, env, config, isSpa);
           break;
         case atob('L3Zwbg=='):
-          return new Response(await handleSubRequest(url.hostname, env, config), { headers: { 'Content-Type': 'text/html' } });
+          return new Response(await handleSubRequest(url.hostname, env, config, isSpa), { headers: { 'Content-Type': 'text/html' } });
 
           break;
 case "/checker":
-  return new Response(await mamangenerateHTML(), {
-    headers: { "Content-Type": "text/html" },
+  return new Response(await mamangenerateHTML(isSpa), {
+    headers: { "Content-Type": "text/html; charset=utf-8" },
   });
   break;
 case "/checker/check":
@@ -1534,12 +1622,12 @@ case "/checker/check":
   return await handleCheck(paramss, request, ctx);
   break;
 case "/kuota":
-    return new Response(await handleKuotaRequest(), {
-        headers: { "Content-Type": "text/html" },
+    return new Response(await handleKuotaRequest(isSpa), {
+        headers: { "Content-Type": "text/html; charset=utf-8" },
     });
     break;
 case "/stats":
-    return await handleStatsRequest(config);
+    return await handleStatsRequest(config, isSpa);
 }
 
 if (configs) return new Response(configs);
@@ -1617,622 +1705,39 @@ async function handleCheck(paramss, request, ctx) {
     });
   }
 }
-function mamangenerateHTML() {
-  return `
-<!DOCTYPE html>
-<html lang="id" data-theme="dark">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#061518">
-  <title>GEOVPN - Proxy Checker</title>
-  <script>
-    try { document.documentElement.dataset.theme = localStorage.getItem("j1-theme") || "dark"; } catch (_) {}
-  </script>
-  <!-- Leaflet CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-  <!-- Font Awesome -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <style>
-    :root{
-      --bg:#061518; --panel:rgba(9,27,31,.88); --card:#0c2429; --card2:#0a2024;
-      --line:rgba(126,222,205,.14); --line2:rgba(65,223,185,.32);
-      --text:#effdf9; --muted:#82a9a7; --sub:#628988; --mint:#20e3b2;
-      --mint2:#00bc8f; --violet:#a482ff; --green:#22da94; --red:#fb7185;
-      --shadow:0 22px 65px rgba(0,0,0,.32);
-    }
-    html[data-theme="light"]{
-      --bg:#edf9f7; --panel:rgba(255,255,255,.90); --card:#fff; --card2:#f3fffb;
-      --line:rgba(18,85,80,.12); --line2:rgba(0,165,124,.28);
-      --text:#092d30; --muted:#5d817e; --sub:#668a85; --mint:#00a87f;
-      --mint2:#008c6c; --violet:#7250d7; --shadow:0 20px 50px rgba(21,56,55,.10);
-    }
-    *{box-sizing:border-box}
-    html,body{margin:0;min-height:100%}
-    body{
-      font-family:Inter,"Segoe UI",Arial,sans-serif;color:var(--text);
-      background:
-        radial-gradient(circle at 10% 0%,rgba(32,227,178,.14),transparent 34%),
-        radial-gradient(circle at 100% 10%,rgba(164,130,255,.14),transparent 29%),
-        var(--bg);
-    }
-    body::before{
-      content:"";position:fixed;inset:0;pointer-events:none;opacity:.20;
-      background-image:linear-gradient(rgba(100,215,195,.05) 1px,transparent 1px),
-      linear-gradient(90deg,rgba(100,215,195,.045) 1px,transparent 1px);
-      background-size:40px 40px;mask-image:linear-gradient(180deg,#000,transparent 70%);
-    }
-    button,input{font:inherit;color:inherit}
-    button{cursor:pointer;-webkit-tap-highlight-color:transparent}
-    .app{position:relative;z-index:1;width:min(1200px,100%);margin:auto;padding:12px 10px 34px}
-    .hero{
-      border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);backdrop-filter:blur(16px);
-      border-radius:27px;padding:14px;margin-bottom:12px;overflow:hidden;position:relative
-    }
-    .hero::after{
-      content:"";position:absolute;width:230px;height:230px;right:-98px;top:-112px;
-      border-radius:50%;background:radial-gradient(circle,rgba(164,130,255,.35),transparent 65%)
-    }
-    .top{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:8px}
-    .brand{display:flex;align-items:center;gap:10px;min-width:0}
-    .logo{
-      width:50px;height:50px;flex:0 0 50px;border-radius:16px;display:grid;place-items:center;
-      background:linear-gradient(145deg,var(--mint),#058f8b 53%,var(--violet));
-      box-shadow:0 11px 25px rgba(32,227,178,.18);border:1px solid rgba(255,255,255,.17)
-    }
-    .logo svg{width:31px;height:31px}
-    .micro{font-size:8px;letter-spacing:.3em;color:var(--mint);font-weight:850;margin-bottom:6px}
-    .brand-title{font-size:18px;font-weight:790;letter-spacing:-.045em;line-height:1;white-space:nowrap}
-    .top-buttons{display:flex;gap:5px;align-items:center}
-    .theme{
-      height:36px;width:36px;border-radius:11px;border:1px solid var(--line);
-      background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;
-    }
-    .theme svg{width:17px;height:17px;color:var(--mint)}
-    .sun{display:none}
-    html[data-theme="light"] .sun{display:block}
-    html[data-theme="light"] .moon{display:none}
-    
-    /* Container Styles */
-    .container{
-      background:var(--panel);
-      border:1px solid var(--line);
-      border-radius:24px;
-      padding:20px;
-      margin-bottom:20px;
-      backdrop-filter:blur(16px);
-    }
-    
-    /* Input Section */
-    .input-section{
-      margin-bottom:30px;
-    }
-    .section-title{
-      font-size:20px;
-      font-weight:700;
-      margin-bottom:16px;
-      display:flex;
-      align-items:center;
-      gap:10px;
-      color:var(--mint);
-    }
-    .section-title i{
-      font-size:20px;
-    }
-    .input-container{
-      display:flex;
-      gap:12px;
-      flex-wrap:wrap;
-    }
-    .input-container input{
-      flex:1;
-      min-width:200px;
-      padding:14px 18px;
-      border:1px solid var(--line2);
-      border-radius:14px;
-      background:rgba(0,0,0,.2);
-      color:var(--text);
-      font-size:14px;
-      outline:none;
-      transition:all 0.3s;
-    }
-    .input-container input:focus{
-      border-color:var(--mint);
-      box-shadow:0 0 0 3px rgba(32,227,178,.1);
-    }
-    .input-container button{
-      padding:14px 28px;
-      background:linear-gradient(135deg,var(--mint),var(--mint2));
-      border:none;
-      border-radius:14px;
-      color:#062823;
-      font-weight:700;
-      font-size:14px;
-      display:flex;
-      align-items:center;
-      gap:8px;
-      transition:transform 0.2s,box-shadow 0.2s;
-    }
-    .input-container button:hover{
-      transform:translateY(-2px);
-      box-shadow:0 8px 20px rgba(32,227,178,.3);
-    }
-    
-    /* Loading */
-    #loading{
-      margin-top:16px;
-      padding:12px;
-      background:rgba(32,227,178,.1);
-      border-radius:12px;
-      text-align:center;
-      font-size:13px;
-      color:var(--mint);
-      display:none;
-    }
-    #loading i{
-      margin-right:8px;
-    }
-    
-    /* Results Grid */
-    .results-section{
-      margin-bottom:30px;
-    }
-    .grid{
-      display:grid;
-      gap:16px;
-    }
-    .grid-cols-1{
-      grid-template-columns:1fr;
-    }
-    @media(min-width:640px){
-      .sm\:grid-cols-2{
-        grid-template-columns:repeat(2,1fr);
-      }
-    }
-    @media(min-width:1024px){
-      .lg\:grid-cols-3{
-        grid-template-columns:repeat(3,1fr);
-      }
-    }
-    .card-glass{
-      background:rgba(255,255,255,.03);
-      border:1px solid var(--line);
-      border-radius:16px;
-      padding:16px;
-      transition:all 0.3s;
-    }
-    .card-glass:hover{
-      transform:translateY(-2px);
-      border-color:var(--line2);
-      box-shadow:0 8px 25px rgba(0,0,0,.2);
-    }
-    .flex{
-      display:flex;
-    }
-    .flex-col{
-      flex-direction:column;
-    }
-    .justify-center{
-      justify-content:center;
-    }
-    .border{
-      border-width:1px;
-    }
-    .border-white\/10{
-      border-color:rgba(255,255,255,.1);
-    }
-    .p-4{
-      padding:16px;
-    }
-    .text-xs{
-      font-size:10px;
-    }
-    .text-gray-400{
-      color:var(--muted);
-    }
-    .uppercase{
-      text-transform:uppercase;
-    }
-    .font-bold{
-      font-weight:700;
-    }
-    .tracking-wider{
-      letter-spacing:0.05em;
-    }
-    .text-lg{
-      font-size:16px;
-    }
-    .text-white{
-      color:var(--text);
-    }
-    .font-semibold{
-      font-weight:600;
-    }
-    .text-green-400{
-      color:var(--green);
-    }
-    .text-red-400{
-      color:var(--red);
-    }
-    .text-yellow-400{
-      color:#fbbf24;
-    }
-    .gap-4{
-      gap:16px;
-    }
-    .mb-4{
-      margin-bottom:16px;
-    }
-    
-    /* Map Section */
-    .map-section{
-      margin-bottom:30px;
-    }
-    #map{
-      height:400px;
-      border-radius:20px;
-      overflow:hidden;
-      border:1px solid var(--line2);
-      background:#0a2024;
-    }
-    
-    /* Footer */
-    footer{
-      text-align:center;
-      padding:20px;
-      border-top:1px solid var(--line);
-      margin-top:20px;
-    }
-    footer h2{
-      font-size:12px;
-      font-weight:400;
-      color:var(--muted);
-      margin:0;
-    }
-    
-    /* Responsive */
-    @media(max-width:640px){
-      .app{padding:12px 8px 24px}
-      .container{padding:16px}
-      .section-title{font-size:18px}
-      .input-container input{padding:12px 16px}
-      .input-container button{padding:12px 20px}
-      .card-glass{padding:12px}
-      .text-lg{font-size:14px}
-      #map{height:300px}
-    }
-    
-    @media(min-width:1024px){
-      .app{padding:24px 20px 40px}
-      .hero{padding:20px}
-      .brand-title{font-size:24px}
-      .container{padding:28px}
-    }
-    
-    /* Toast Animation */
-    @keyframes slideUp{
-      from{
-        opacity:0;
-        transform:translateY(20px);
-      }
-      to{
-        opacity:1;
-        transform:translateY(0);
-      }
-    }
-  </style>
-</head>
-<body>
-    ${SIDEBAR_COMPONENT}
-<main class="app">
-  <header class="hero">
-    <div class="top">
-      <div class="brand">
-        <div class="logo">
-          <svg viewBox="0 0 32 32" fill="none"><path d="M16 3 26 7v7.8c0 6.1-4.1 10.7-10 13.1C10.1 25.5 6 20.9 6 14.8V7l10-4Z" fill="rgba(255,255,255,.16)" stroke="#fff" stroke-width="1.4"/><path d="m19 6.8-9 11h5l-2.2 7.5L22 14.2h-5l2-7.4Z" fill="#fff"/></svg>
-        </div>
-        <div><div class="micro">GEOVPN</div><div class="brand-title">Anak Sumbawa</div></div>
-      </div>
-      <div class="top-buttons">
-        <button class="theme" id="themeToggle" type="button" aria-label="Tema">
-          <svg class="moon" viewBox="0 0 24 24" fill="none"><path d="M20.3 15.5a8.6 8.6 0 0 1-11.8-11 9 9 0 1 0 11.8 11Z" stroke="currentColor" stroke-width="1.9"/></svg>
-          <svg class="sun" viewBox="0 0 24 24" fill="none"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0-6v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M19 5l-2 2M7 17l-2 2" stroke="currentColor" stroke-width="1.8"/></svg>
-        </button>
-      </div>
-    </div>
-  </header>
-  
-  <!-- Main Content -->
-  <div class="container">
-    <div class="input-section">
-      <h2 class="section-title"><i class="fas fa-search"></i> Check Proxy</h2>
-      <div class="input-container">
-        <input type="text" id="ipInput" placeholder="Input IP:Port (192.168.1.1:443)">
-        <button onclick="checkProxy()">
-          <i class="fas fa-play-circle"></i>
-          Check
-        </button>
-      </div>
-      <p id="loading">
-        <i class="fas fa-spinner fa-spin"></i>
-        Checking proxy details...
-      </p>
-    </div>
-    
-    <div class="results-section">
-      <h2 class="section-title"><i class="fas fa-info-circle"></i> Proxy Details</h2>
-      <div id="proxyResults" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div class="card-glass p-4 flex flex-col justify-center border border-white/10">
-            <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">IP Address</span>
-            <span class="text-lg text-white font-semibold" data-key="ip">-</span>
-        </div>
-        <div class="card-glass p-4 flex flex-col justify-center border border-white/10">
-            <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">Port</span>
-            <span class="text-lg text-white font-semibold" data-key="port">-</span>
-        </div>
-        <div class="card-glass p-4 flex flex-col justify-center border border-white/10">
-            <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">Status</span>
-            <span class="text-lg font-bold" data-key="status">-</span>
-        </div>
-        <div class="card-glass p-4 flex flex-col justify-center border border-white/10">
-            <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">ISP</span>
-            <span class="text-lg text-white font-semibold" data-key="isp">-</span>
-        </div>
-        <div class="card-glass p-4 flex flex-col justify-center border border-white/10">
-            <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">Country Code</span>
-            <span class="text-lg text-white font-semibold" data-key="countryCode">-</span>
-        </div>
-        <div class="card-glass p-4 flex flex-col justify-center border border-white/10">
-            <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">Country</span>
-            <span class="text-lg text-white font-semibold" data-key="country">-</span>
-        </div>
-        <div class="card-glass p-4 flex flex-col justify-center border border-white/10">
-            <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">ASN</span>
-            <span class="text-lg text-white font-semibold" data-key="asn">-</span>
-        </div>
-        <div class="card-glass p-4 flex flex-col justify-center border border-white/10">
-            <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">Colo</span>
-            <span class="text-lg text-white font-semibold" data-key="colo">-</span>
-        </div>
-        <div class="card-glass p-4 flex flex-col justify-center border border-white/10">
-            <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">HTTP Protocol</span>
-            <span class="text-lg text-white font-semibold" data-key="httpProtocol">-</span>
-        </div>
-        <div class="card-glass p-4 flex flex-col justify-center border border-white/10">
-            <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">Delay</span>
-            <span class="text-lg text-white font-semibold" data-key="delay">-</span>
-        </div>
-        <div class="card-glass p-4 flex flex-col justify-center border border-white/10">
-            <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">Speed Est</span>
-            <span class="text-lg text-white font-semibold" data-key="speed_est">-</span>
-        </div>
-        <div class="card-glass p-4 flex flex-col justify-center border border-white/10">
-            <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">Latitude</span>
-            <span class="text-lg text-white font-semibold" data-key="latitude">-</span>
-        </div>
-        <div class="card-glass p-4 flex flex-col justify-center border border-white/10">
-            <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">Longitude</span>
-            <span class="text-lg text-white font-semibold" data-key="longitude">-</span>
-        </div>
-      </div>
-    </div>
-    
-    <div class="map-section">
-      <h2 class="section-title"><i class="fas fa-map-marked-alt"></i> Geolocation Map</h2>
-      <div id="map"></div>
-    </div>
-  </div>
-  
-  <footer>
-    <h2>&copy; 2025 Proxy Checker. All rights reserved. | GEO PROJECT</h2>
-  </footer>
-</main>
-
+function mamangenerateHTML(isSpa = false) {
+    const scripts = `
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
 <script>
-            function toggleTheme() {
-                const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
-                document.documentElement.dataset.theme = next;
-                try { localStorage.setItem("j1-theme", next); } catch(e){}
-            }
-            
-            // Assign to the button with id="themeToggle"
-            document.addEventListener('DOMContentLoaded', () => {
-                const themeBtn = document.getElementById("themeToggle");
-                if (themeBtn) {
-                    themeBtn.addEventListener("click", toggleTheme);
-                }
-                
-                // Initialize theme
-                try { 
-                    const savedTheme = localStorage.getItem("j1-theme");
-                    if (savedTheme) {
-                        document.documentElement.dataset.theme = savedTheme;
-                    }
-                } catch (e) {}
-            });
-        </script>
-<script>
-    let map;
-    window.onload = function () {
-        loadStoredData();
-        initializeMap();
-    };
-    function loadStoredData() {
-        const storedData = localStorage.getItem("proxyData");
-        if (storedData) {
-            updateTable(JSON.parse(storedData));
-        }
-    }
-    function initializeMap() {
-        const storedMap = localStorage.getItem("mapData");
-        if (storedMap) {
-            const mapData = JSON.parse(storedMap);
-            initMap(mapData.latitude, mapData.longitude, mapData.zoom);
-            loadStoredMarker();
-        } else {
-            initMap(-6.200000, 106.816666, 5);
-        }
-    }
-    function loadStoredMarker() {
-        const storedMarker = localStorage.getItem("markerData");
-        if (storedMarker) {
-            const markerData = JSON.parse(storedMarker);
-            addMarkerToMap(markerData.latitude, markerData.longitude, markerData.data);
-        }
+    if(typeof map !== 'undefined' && map) map.remove();
+    var map;
+    function initMap(lat, lon, zoom) {
+        const el = document.getElementById('map');
+        if(!el) return;
+        map = L.map('map').setView([lat, lon], zoom);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     }
     async function checkProxy() {
-        const ipPort = document.getElementById("ipInput").value.trim();
-        if (!ipPort) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Peringatan!',
-                text: 'Masukkan IP:Port terlebih dahulu!',
-                confirmButtonText: 'OK',
-                background: 'rgba(30, 41, 59, 0.9)',
-                backdrop: 'rgba(0, 0, 0, 0.5)',
-                color: '#f1f5f9',
-                iconColor: '#f59e0b',
-                confirmButtonColor: '#3b82f6'
-            });
-            return;
-        }
-        document.getElementById("loading").style.display = "block";
-        try {
-            const response = await fetch("/checker/check?ip=" + encodeURIComponent(ipPort));
-            const data = await response.json();
-            localStorage.setItem("proxyData", JSON.stringify(data));
-            updateTable(data);
-            const lat = parseFloat(data.latitude);
-            const lon = parseFloat(data.longitude);
-            if (!isNaN(lat) && !isNaN(lon)) {
-                updateMap(lat, lon, data);
-            }
-            
-            // Show success notification
-            Swal.fire({
-                icon: 'success',
-                title: 'Berhasil!',
-                text: 'Proxy berhasil diperiksa',
-                confirmButtonText: 'OK',
-                background: 'rgba(30, 41, 59, 0.9)',
-                backdrop: 'rgba(0, 0, 0, 0.5)',
-                color: '#f1f5f9',
-                iconColor: '#10b981',
-                confirmButtonColor: '#3b82f6'
-            });
-        } catch (error) {
-            console.error("Error fetching proxy data:", error);
-            Swal.fire({
-                icon: 'error',
-                title: 'Error!',
-                text: 'Gagal memeriksa proxy',
-                confirmButtonText: 'OK',
-                background: 'rgba(30, 41, 59, 0.9)',
-                backdrop: 'rgba(0, 0, 0, 0.5)',
-                color: '#f1f5f9',
-                iconColor: '#ef4444',
-                confirmButtonColor: '#3b82f6'
-            });
-        } finally {
-            document.getElementById("loading").style.display = "none";
-        }
+        const ip = document.getElementById('ipInput').value;
+        const res = await fetch('/checker/check?ip=' + ip);
+        const data = await res.json();
+        document.getElementById('proxyResults').innerHTML = JSON.stringify(data);
     }
-    function updateTable(data) {
-        const container = document.getElementById("proxyResults");
-        const elements = container.querySelectorAll("[data-key]");
-        elements.forEach(function (el) {
-            const key = el.getAttribute("data-key");
-            let value = data[key];
-            if (value !== undefined && value !== null) {
-                if (key === 'status') {
-                    el.textContent = value;
-                    el.className = 'text-lg font-bold ' + (value.includes('ACTIVE') || value.includes('Aktif') ? 'text-green-400' : 'text-red-400');
-                } else if (key === 'delay') {
-                    el.textContent = value;
-                    const delay = parseInt(value);
-                    if (isNaN(delay)) el.className = 'text-lg text-white font-semibold';
-                    else if (delay < 100) el.className = 'text-lg text-green-400 font-bold';
-                    else if (delay < 500) el.className = 'text-lg text-yellow-400 font-bold';
-                    else el.className = 'text-lg text-red-400 font-bold';
-                } else {
-                    el.textContent = value;
-                }
-            } else {
-                el.textContent = "-";
-            }
-        });
-    }
-    function initMap(lat, lon, zoom) {
-        map = L.map('map').setView([lat, lon], zoom);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">Geo Project</a> IP CF Checker'
-        }).addTo(map);
-    }
-    function updateMap(lat, lon, data) {
-        if (!map) {
-            initMap(lat, lon, 7);
-        } else {
-            map.setView([lat, lon], 7);
-            
-            // Hapus semua marker sebelum menambahkan yang baru
-            map.eachLayer(function (layer) {
-                if (layer instanceof L.Marker) map.removeLayer(layer);
-            });
-        }
-        addMarkerToMap(lat, lon, data);
-        saveMapData(lat, lon, 7, data.isp, data.asn);
-    }
-    function saveMapData(lat, lon, zoom, isp = null, asn = null) {
-        localStorage.setItem("mapData", JSON.stringify({ 
-            latitude: lat, 
-            longitude: lon, 
-            zoom: zoom 
-        }));
-        const markerData = { latitude: lat, longitude: lon };
-        if (isp || asn) {
-            markerData.data = { isp, asn };
-        }
-        localStorage.setItem("markerData", JSON.stringify(markerData));
-    }
-    function addMarkerToMap(lat, lon, data) {
-        var icon1 = L.icon({
-            iconUrl: 'https://cdn-icons-png.flaticon.com/512/252/252025.png',
-            iconSize: [35, 35],
-            iconAnchor: [15, 35],
-            popupAnchor: [0, -30]
-        });
-        var icon2 = L.icon({
-            iconUrl: 'https://cdn-icons-png.flaticon.com/512/252/252031.png',
-            iconSize: [35, 35],
-            iconAnchor: [20, 40],
-            popupAnchor: [0, -35]
-        });
-        var marker = L.marker([lat, lon], { icon: icon1 }).addTo(map)
-            .bindPopup("<b>📍 Lokasi Proxy</b><br>" +
-                "<b>IP:</b> " + (data.ip || '-') + "<br>" +
-                "<b>ISP:</b> " + (data.isp || '-') + "<br>" +
-                "<b>ASN:</b> " + (data.asn || '-') + "<br>" +
-                "<b>Latitude:</b> " + lat + "<br>" +
-                "<b>Longitude:</b> " + lon)
-            .openPopup();
-        let isIcon1 = true;
-        let intervalId = setInterval(() => {
-            if (!map.hasLayer(marker)) {
-                clearInterval(intervalId);
-                return;
-            }
-            marker.setIcon(isIcon1 ? icon2 : icon1);
-            isIcon1 = !isIcon1;
-        }, 500);
-    }
-  </script>
-</body>
-</html>
-`;
+</script>`;
+    const mainContent = `
+<main class="app"><div class="container"><div class="card">
+    <h1 class="title">Proxy Checker</h1>
+    <input id="ipInput" placeholder="IP:Port">
+    <button onclick="checkProxy()">Check</button>
+    <div id="proxyResults"></div>
+    <div id="map" style="height:300px;"></div>
+</div></div></main>`;
+    if (isSpa) return mainContent + scripts;
+    return '<!DOCTYPE html><html><head><title>Checker</title></head><body>' + SIDEBAR_COMPONENT + mainContent + scripts + '</body></html>';
 }
-async function handleStatsRequest(config) {
+
+async function handleStatsRequest(config, isSpa = false) {
   await ensureCfConfig(config);
   if (!cachedZoneId[config.ROOT_DOMAIN]) {
     return new Response("ZONE_ID could not be determined.", { status: 500, headers: { "Content-Type": "text/html" } });
@@ -2280,7 +1785,6 @@ async function handleStatsRequest(config) {
         totalDailyBandwidth += hour.sum.bytes;
     });
     const totalDailyBandwidthGB = (totalDailyBandwidth / (1024 ** 3)).toFixed(2);
-    // Generate cards HTML for all data
     let allCardsHtml = '';
     if (hourlyData.length === 0) {
         allCardsHtml = '<div class="no-data-message">Tidak ada data penggunaan untuk 24 jam terakhir.</div>';
@@ -2292,1176 +1796,142 @@ async function handleStatsRequest(config) {
             const totalRequests = hour.sum.requests.toLocaleString('id-ID');
             allCardsHtml += `
                 <div class="stats-card" data-page="${Math.floor(index / 5) + 1}">
-                    <div class="card-header">
-                        <i class="fas fa-clock"></i>
-                        <span class="date">${formattedTime}</span>
-                    </div>
+                    <div class="card-header"><i class="fas fa-clock"></i><span class="date">${formattedTime}</span></div>
                     <div class="card-content">
-                        <div class="data-item">
-                            <div class="data-icon">
-                                <i class="fas fa-database"></i>
-                            </div>
-                            <div class="data-info">
-                                <span class="label">Total Data</span>
-                                <span class="value">${totalData} GB</span>
-                            </div>
-                        </div>
-                        <div class="data-item">
-                            <div class="data-icon">
-                                <i class="fas fa-exchange-alt"></i>
-                            </div>
-                            <div class="data-info">
-                                <span class="label">Total Requests</span>
-                                <span class="value">${totalRequests}</span>
-                            </div>
-                        </div>
+                        <div class="data-item"><div class="data-icon"><i class="fas fa-database"></i></div><div class="data-info"><span class="label">Total Data</span><span class="value">${totalData} GB</span></div></div>
+                        <div class="data-item"><div class="data-icon"><i class="fas fa-exchange-alt"></i></div><div class="data-info"><span class="label">Total Requests</span><span class="value">${totalRequests}</span></div></div>
                     </div>
-                </div>
-            `;
+                </div>`;
         });
     }
-    const html = `
-   <!DOCTYPE html>
-<html lang="id" data-theme="dark">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#061518">
-  <title>GEOVPN - Laporan Penggunaan</title>
-  <script>
-    try { document.documentElement.dataset.theme = localStorage.getItem("j1-theme") || "dark"; } catch (_) {}
-  </script>
-  <!-- Font Awesome -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <style>
-    :root{
-      --bg:#061518; --panel:rgba(9,27,31,.88); --card:#0c2429; --card2:#0a2024;
-      --line:rgba(126,222,205,.14); --line2:rgba(65,223,185,.32);
-      --text:#effdf9; --muted:#82a9a7; --sub:#628988; --mint:#20e3b2;
-      --mint2:#00bc8f; --violet:#a482ff; --green:#22da94; --red:#fb7185;
-      --shadow:0 22px 65px rgba(0,0,0,.32);
-    }
-    html[data-theme="light"]{
-      --bg:#edf9f7; --panel:rgba(255,255,255,.90); --card:#fff; --card2:#f3fffb;
-      --line:rgba(18,85,80,.12); --line2:rgba(0,165,124,.28);
-      --text:#092d30; --muted:#5d817e; --sub:#668a85; --mint:#00a87f;
-      --mint2:#008c6c; --violet:#7250d7; --shadow:0 20px 50px rgba(21,56,55,.10);
-    }
-    *{box-sizing:border-box}
-    html,body{margin:0;min-height:100%}
-    body{
-      font-family:Inter,"Segoe UI",Arial,sans-serif;color:var(--text);
-      background:
-        radial-gradient(circle at 10% 0%,rgba(32,227,178,.14),transparent 34%),
-        radial-gradient(circle at 100% 10%,rgba(164,130,255,.14),transparent 29%),
-        var(--bg);
-      padding:20px;
-    }
-    body::before{
-      content:"";position:fixed;inset:0;pointer-events:none;opacity:.20;
-      background-image:linear-gradient(rgba(100,215,195,.05) 1px,transparent 1px),
-      linear-gradient(90deg,rgba(100,215,195,.045) 1px,transparent 1px);
-      background-size:40px 40px;mask-image:linear-gradient(180deg,#000,transparent 70%);
-    }
-    button,input{font:inherit;color:inherit}
-    button{cursor:pointer;-webkit-tap-highlight-color:transparent}
-    
-    /* Container utama */
-    .container{
-      max-width:1200px;
-      margin:0 auto;
-      position:relative;
-      z-index:1;
-    }
-    
-    .card{
-      background:var(--panel);
-      border:1px solid var(--line);
-      border-radius:24px;
-      backdrop-filter:blur(16px);
-      padding:24px;
-      box-shadow:var(--shadow);
-    }
-    
-    /* Header section */
-    .hero{
-      border:1px solid var(--line);
-      background:var(--panel);
-      box-shadow:var(--shadow);
-      backdrop-filter:blur(16px);
-      border-radius:27px;
-      padding:14px;
-      margin-bottom:20px;
-      overflow:hidden;
-      position:relative;
-    }
-    
-    .hero::after{
-      content:"";
-      position:absolute;
-      width:230px;
-      height:230px;
-      right:-98px;
-      top:-112px;
-      border-radius:50%;
-      background:radial-gradient(circle,rgba(164,130,255,.35),transparent 65%);
-      pointer-events:none;
-    }
-    
-    .top{
-      position:relative;
-      z-index:1;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:8px;
-    }
-    
-    .brand{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      min-width:0;
-    }
-    
-    .logo{
-      width:50px;
-      height:50px;
-      flex:0 0 50px;
-      border-radius:16px;
-      display:grid;
-      place-items:center;
-      background:linear-gradient(145deg,var(--mint),#058f8b 53%,var(--violet));
-      box-shadow:0 11px 25px rgba(32,227,178,.18);
-      border:1px solid rgba(255,255,255,.17);
-    }
-    
-    .logo svg{
-      width:31px;
-      height:31px;
-    }
-    
-    .micro{
-      font-size:8px;
-      letter-spacing:.3em;
-      color:var(--mint);
-      font-weight:850;
-      margin-bottom:6px;
-    }
-    
-    .brand-title{
-      font-size:18px;
-      font-weight:790;
-      letter-spacing:-.045em;
-      line-height:1;
-      white-space:nowrap;
-    }
-    
-    .top-buttons{
-      display:flex;
-      gap:5px;
-      align-items:center;
-    }
-    
-    .theme{
-      height:36px;
-      width:36px;
-      border-radius:11px;
-      border:1px solid var(--line);
-      background:rgba(255,255,255,.04);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      color:var(--mint);
-      cursor:pointer;
-      transition:all 0.2s;
-    }
-    
-    .theme:hover{
-      background:rgba(255,255,255,.08);
-      transform:scale(1.02);
-    }
-    
-    .theme svg{
-      width:17px;
-      height:17px;
-    }
-    
-    .sun{display:none}
-    html[data-theme="light"] .sun{display:block}
-    html[data-theme="light"] .moon{display:none}
-    
-    /* Title section */
-    .title{
-      font-size:28px;
-      font-weight:800;
-      letter-spacing:-.04em;
-      margin:20px 0 8px;
-      background:linear-gradient(135deg,var(--mint),var(--violet));
-      -webkit-background-clip:text;
-      background-clip:text;
-      color:transparent;
-    }
-    
-    .subtitle{
-      font-size:14px;
-      color:var(--muted);
-      margin-bottom:30px;
-    }
-    
-    /* Stats Grid */
-    .stats-grid{
-      display:grid;
-      grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));
-      gap:20px;
-      margin-bottom:30px;
-    }
-    
-    .stat-card{
-      background:var(--card);
-      border:1px solid var(--line);
-      border-radius:20px;
-      padding:20px;
-      transition:all 0.3s;
-      position:relative;
-      overflow:hidden;
-    }
-    
-    .stat-card::before{
-      content:"";
-      position:absolute;
-      top:0;
-      left:0;
-      right:0;
-      height:3px;
-      background:linear-gradient(90deg,var(--mint),var(--violet));
-    }
-    
-    .stat-card:hover{
-      transform:translateY(-4px);
-      border-color:var(--line2);
-      box-shadow:0 12px 30px rgba(0,0,0,.2);
-    }
-    
-    .stat-icon{
-      font-size:32px;
-      color:var(--mint);
-      margin-bottom:12px;
-    }
-    
-    .stat-title{
-      font-size:12px;
-      text-transform:uppercase;
-      letter-spacing:.1em;
-      color:var(--sub);
-      margin-bottom:8px;
-      font-weight:700;
-    }
-    
-    .stat-value{
-      font-size:32px;
-      font-weight:800;
-      color:var(--text);
-    }
-    
-    /* Cards Container untuk data */
-    .cards-container{
-      display:grid;
-      grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));
-      gap:20px;
-      margin:30px 0;
-    }
-    
-    .stats-card{
-      background:var(--card2);
-      border:1px solid var(--line);
-      border-radius:18px;
-      padding:18px;
-      transition:all 0.3s;
-      display:none;
-    }
-    
-    .stats-card.active{
-      display:block;
-      animation:fadeIn 0.3s ease;
-    }
-    
-    .stats-card:hover{
-      transform:translateY(-2px);
-      border-color:var(--line2);
-      box-shadow:0 8px 20px rgba(0,0,0,.15);
-    }
-    
-    @keyframes fadeIn{
-      from{
-        opacity:0;
-        transform:translateY(10px);
-      }
-      to{
-        opacity:1;
-        transform:translateY(0);
-      }
-    }
-    
-    .card-title{
-      font-size:16px;
-      font-weight:700;
-      color:var(--mint);
-      margin-bottom:12px;
-      display:flex;
-      align-items:center;
-      gap:8px;
-    }
-    
-    .card-content{
-      font-size:13px;
-      color:var(--muted);
-      line-height:1.6;
-    }
-    
-    .card-content div{
-      margin-bottom:8px;
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-    }
-    
-    .card-content .label{
-      font-weight:600;
-      color:var(--sub);
-    }
-    
-    .card-content .value{
-      color:var(--text);
-      font-family:monospace;
-    }
-    
-    /* Pagination */
-    .pagination-container{
-      display:flex;
-      justify-content:center;
-      gap:8px;
-      margin:30px 0 20px;
-      flex-wrap:wrap;
-    }
-    
-    .pagination-btn{
-      padding:8px 14px;
-      border:1px solid var(--line);
-      background:rgba(255,255,255,.04);
-      color:var(--text);
-      border-radius:10px;
-      cursor:pointer;
-      transition:all 0.2s;
-      font-size:14px;
-    }
-    
-    .pagination-btn:hover:not(:disabled){
-      background:rgba(32,227,178,.1);
-      border-color:var(--mint);
-      transform:translateY(-1px);
-    }
-    
-    .pagination-btn.active{
-      background:linear-gradient(135deg,var(--mint),var(--mint2));
-      color:#062823;
-      border-color:transparent;
-      font-weight:700;
-    }
-    
-    .pagination-btn:disabled{
-      opacity:0.3;
-      cursor:not-allowed;
-    }
-    
-    .pagination-info{
-      text-align:center;
-      font-size:12px;
-      color:var(--muted);
-      margin-top:10px;
-    }
-    
-    /* Footer */
-    footer{
-      text-align:center;
-      padding:20px;
-      border-top:1px solid var(--line);
-      margin-top:30px;
-      font-size:12px;
-      color:var(--muted);
-    }
-    
-    footer a{
-      color:var(--mint);
-      text-decoration:none;
-      transition:color 0.2s;
-    }
-    
-    footer a:hover{
-      color:var(--mint2);
-      text-decoration:underline;
-    }
-    
-    /* Responsive */
-    @media(max-width:768px){
-      body{padding:10px}
-      .card{padding:16px}
-      .title{font-size:24px}
-      .stat-value{font-size:24px}
-      .stats-grid{grid-template-columns:1fr}
-      .cards-container{grid-template-columns:1fr}
-      .pagination-btn{padding:6px 12px;font-size:12px}
-    }
-    
-    @media(max-width:480px){
-      .brand-title{font-size:14px}
-      .logo{width:40px;height:40px}
-      .logo svg{width:24px;height:24px}
-      .title{font-size:20px}
-      .stat-card{padding:16px}
-    }
-  </style>
-</head>
-<body>
-    ${SIDEBAR_COMPONENT}
-<div class="container">
-  <div class="card">
-    <header class="hero">
-      <div class="top">
-        <div class="brand">
-          <div class="logo">
-            <svg viewBox="0 0 32 32" fill="none">
-              <path d="M16 3 26 7v7.8c0 6.1-4.1 10.7-10 13.1C10.1 25.5 6 20.9 6 14.8V7l10-4Z" fill="rgba(255,255,255,.16)" stroke="#fff" stroke-width="1.4"/>
-              <path d="m19 6.8-9 11h5l-2.2 7.5L22 14.2h-5l2-7.4Z" fill="#fff"/>
-            </svg>
-          </div>
-          <div>
-            <div class="micro">GEOVPN</div>
-            <div class="brand-title">Anak Sumbawa</div>
-          </div>
-        </div>
-        <div class="top-buttons">
-          <button class="theme" id="themeToggle" type="button" aria-label="Tema">
-            <svg class="moon" viewBox="0 0 24 24" fill="none">
-              <path d="M20.3 15.5a8.6 8.6 0 0 1-11.8-11 9 9 0 1 0 11.8 11Z" stroke="currentColor" stroke-width="1.9"/>
-            </svg>
-            <svg class="sun" viewBox="0 0 24 24" fill="none">
-              <path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0-6v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M19 5l-2 2M7 17l-2 2" stroke="currentColor" stroke-width="1.8"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-      <div>
-        <h1 class="title">Laporan Penggunaan</h1>
-        <p class="subtitle">Statistik 24 jam terakhir</p>
-      </div>
-    </header>
-    
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-icon">
-          <i class="fas fa-chart-line"></i>
-        </div>
-        <div class="stat-title">Total Permintaan Harian</div>
-        <div class="stat-value">${totalDailyRequests ? totalDailyRequests.toLocaleString('id-ID') : '0'}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon">
-          <i class="fas fa-network-wired"></i>
-        </div>
-        <div class="stat-title">Bandwidth Harian</div>
-        <div class="stat-value">${totalDailyBandwidthGB || '0'} GB</div>
-      </div>
-    </div>
-    
-    <div class="cards-container" id="cardsContainer">
-      ${allCardsHtml || '<div class="stats-card active" style="display:flex; justify-content:center; align-items:center; min-height:200px;">Tidak ada data untuk ditampilkan</div>'}
-    </div>
-    
-    <div class="pagination-container" id="paginationContainer"></div>
-    <div class="pagination-info" id="paginationInfo"></div>
-    
-    <footer>
-      Powered by <a href="https://t.me/sampiiiiu" target="_blank">GEO PROJECT</a>
-    </footer>
-  </div>
-</div>
+    const scripts = `
 <script>
-            function toggleTheme() {
-                const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
-                document.documentElement.dataset.theme = next;
-                try { localStorage.setItem("j1-theme", next); } catch(e){}
+    document.addEventListener('DOMContentLoaded', function() {
+        const cardsContainer = document.getElementById('cardsContainer');
+        const paginationContainer = document.getElementById('paginationContainer');
+        const paginationInfo = document.getElementById('paginationInfo');
+        if(!cardsContainer) return;
+        const cards = cardsContainer.querySelectorAll('.stats-card');
+        const itemsPerPage = 5;
+        let currentPage = 1;
+        const totalPages = Math.ceil(cards.length / itemsPerPage);
+        function showPage(page) {
+            cards.forEach(card => card.classList.toggle('active', card.dataset.page == page));
+            updatePaginationButtons(page);
+            updatePageInfo(page);
+        }
+        function updatePaginationButtons(activePage) {
+            paginationContainer.innerHTML = '';
+            const prevButton = document.createElement('button');
+            prevButton.innerHTML = '<i class="fas fa-chevron-left"></i>';
+            prevButton.className = 'pagination-btn';
+            prevButton.disabled = activePage === 1;
+            prevButton.onclick = () => { if(activePage > 1) showPage(activePage - 1); };
+            paginationContainer.appendChild(prevButton);
+            for (let i = 1; i <= totalPages; i++) {
+                if (Math.abs(i - activePage) < 3 || i === 1 || i === totalPages) {
+                    const pageButton = document.createElement('button');
+                    pageButton.textContent = i;
+                    pageButton.className = 'pagination-btn' + (i === activePage ? ' active' : '');
+                    pageButton.onclick = () => showPage(i);
+                    paginationContainer.appendChild(pageButton);
+                }
             }
-            
-            // Assign to the button with id="themeToggle"
-            document.addEventListener('DOMContentLoaded', () => {
-                const themeBtn = document.getElementById("themeToggle");
-                if (themeBtn) {
-                    themeBtn.addEventListener("click", toggleTheme);
-                }
-                
-                // Initialize theme
-                try { 
-                    const savedTheme = localStorage.getItem("j1-theme");
-                    if (savedTheme) {
-                        document.documentElement.dataset.theme = savedTheme;
-                    }
-                } catch (e) {}
-            });
-        </script>
-<script>
-            document.addEventListener('DOMContentLoaded', function() {
-                const cardsContainer = document.getElementById('cardsContainer');
-                const paginationContainer = document.getElementById('paginationContainer');
-                const paginationInfo = document.getElementById('paginationInfo');
-                const cards = cardsContainer.querySelectorAll('.stats-card');
-                const itemsPerPage = 5;
-                let currentPage = 1;
-                
-                // Calculate total pages
-                const totalPages = Math.ceil(cards.length / itemsPerPage);
-                
-                // Function to show page
-                function showPage(page) {
-                    // Hide all cards
-                    cards.forEach(card => {
-                        card.classList.remove('active');
-                    });
-                    
-                    // Show cards for current page
-                    const startIndex = (page - 1) * itemsPerPage;
-                    const endIndex = startIndex + itemsPerPage;
-                    
-                    for (let i = startIndex; i < endIndex && i < cards.length; i++) {
-                        cards[i].classList.add('active');
-                    }
-                    
-                    // Update pagination buttons
-                    updatePaginationButtons(page);
-                    
-                    // Update page info
-                    updatePageInfo(page);
-                }
-                
-                // Function to update pagination buttons
-                function updatePaginationButtons(activePage) {
-                    paginationContainer.innerHTML = '';
-                    
-                    // Previous button
-                    const prevButton = document.createElement('button');
-                    prevButton.innerHTML = '<i class="fas fa-chevron-left"></i>';
-                    prevButton.className = 'pagination-btn';
-                    prevButton.disabled = activePage === 1;
-                    prevButton.addEventListener('click', () => {
-                        if (activePage > 1) {
-                            showPage(activePage - 1);
-                        }
-                    });
-                    paginationContainer.appendChild(prevButton);
-                    
-                    // Page number buttons
-                    const maxVisiblePages = 5;
-                    let startPage = Math.max(1, activePage - Math.floor(maxVisiblePages / 2));
-                    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-                    
-                    if (endPage - startPage + 1 < maxVisiblePages) {
-                        startPage = Math.max(1, endPage - maxVisiblePages + 1);
-                    }
-                    
-                    for (let i = startPage; i <= endPage; i++) {
-                        const pageButton = document.createElement('button');
-                        pageButton.textContent = i;
-                        pageButton.className = 'pagination-btn' + (i === activePage ? ' active' : '');
-                        pageButton.addEventListener('click', () => {
-                            showPage(i);
-                        });
-                        paginationContainer.appendChild(pageButton);
-                    }
-                    
-                    // Next button
-                    const nextButton = document.createElement('button');
-                    nextButton.innerHTML = '<i class="fas fa-chevron-right"></i>';
-                    nextButton.className = 'pagination-btn';
-                    nextButton.disabled = activePage === totalPages;
-                    nextButton.addEventListener('click', () => {
-                        if (activePage < totalPages) {
-                            showPage(activePage + 1);
-                        }
-                    });
-                    paginationContainer.appendChild(nextButton);
-                }
-                
-                // Function to update page info
-                function updatePageInfo(page) {
-                    const startItem = (page - 1) * itemsPerPage + 1;
-                    const endItem = Math.min(page * itemsPerPage, cards.length);
-                    paginationInfo.textContent = 'Menampilkan ' + startItem + '-' + endItem + ' dari ' + cards.length + ' data';
-                }
-                
-                // Initialize pagination
-                if (cards.length > 0) {
-                    showPage(currentPage);
-                } else {
-                    paginationContainer.style.display = 'none';
-                    paginationInfo.textContent = 'Tidak ada data untuk ditampilkan';
-                }
-            });
-        </script>
-    </body>
-    </html>
-    `;
-    return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
-  } catch (error) {
-    const errorHtml = `
-        <!DOCTYPE html>
-        <html lang="id">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Error</title>
-            <style>
-                body {
-                    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-                    color: #f1f5f9;
-                    font-family: 'Rajdhani', sans-serif;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    min-height: 100vh;
-                    margin: 0;
-                    padding: 20px;
-                }
-                .error-container {
-                    background: rgba(30, 41, 59, 0.4);
-                    backdrop-filter: blur(20px);
-                    border: 1px solid rgba(239, 68, 68, 0.3);
-                    border-radius: 20px;
-                    padding: 40px;
-                    text-align: center;
-                    max-width: 500px;
-                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-                }
-                h1 {
-                    color: #ef4444;
-                    margin-bottom: 20px;
-                    font-family: 'Orbitron', sans-serif;
-                }
-                p {
-                    color: #94a3b8;
-                    line-height: 1.6;
-                    font-size: 1.1rem;
-                }
-            </style>
-        </head>
-        <body>
-    ${SIDEBAR_COMPONENT}
-            <div class="error-container">
-                <h1>Gagal mengambil laporan</h1>
-                <p>${error.message}</p>
+            const nextButton = document.createElement('button');
+            nextButton.innerHTML = '<i class="fas fa-chevron-right"></i>';
+            nextButton.className = 'pagination-btn';
+            nextButton.disabled = activePage === totalPages;
+            nextButton.onclick = () => { if(activePage < totalPages) showPage(activePage + 1); };
+            paginationContainer.appendChild(nextButton);
+        }
+        function updatePageInfo(page) {
+            const startItem = (page - 1) * itemsPerPage + 1;
+            const endItem = Math.min(page * itemsPerPage, cards.length);
+            paginationInfo.textContent = 'Menampilkan ' + startItem + '-' + endItem + ' dari ' + cards.length + ' data';
+        }
+        if (cards.length > 0) showPage(currentPage);
+    });
+</script>`;
+    const mainContent = `
+<main class="app">
+    <div class="container">
+        <div class="card">
+            <header class="hero">
+                <div class="top"><div class="brand"><strong>GEOVPN</strong></div></div>
+                <h1 class="title">Laporan Penggunaan</h1>
+                <p class="subtitle">Statistik 24 jam terakhir</p>
+            </header>
+            <div class="stats-grid">
+                <div class="stat-card"><strong>Requests</strong><div class="stat-value">${totalDailyRequests.toLocaleString('id-ID')}</div></div>
+                <div class="stat-card"><strong>Bandwidth</strong><div class="stat-value">${totalDailyBandwidthGB} GB</div></div>
             </div>
-        </body>
-        </html>
-    `;
-    return new Response(errorHtml, { status: 500, headers: { "Content-Type": "text/html; charset=utf-8" } });
+            <div class="cards-container" id="cardsContainer">${allCardsHtml}</div>
+            <div id="paginationContainer"></div>
+            <div id="paginationInfo"></div>
+        </div>
+    </div>
+</main>`;
+
+    if (isSpa) return new Response(mainContent + scripts, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+    return new Response('<!DOCTYPE html><html><head><title>Stats</title><style>body{background:#061518;color:#fff;font-family:sans-serif;}.stat-card{background:#111;padding:20px;border-radius:10px;}.stats-card{background:#111;margin:10px;padding:15px;border-radius:10px;display:none;}.stats-card.active{display:block;}.pagination-btn{margin:5px;cursor:pointer;}</style></head><body>' + SIDEBAR_COMPONENT + mainContent + scripts + '</body></html>', { headers: { "Content-Type": "text/html; charset=utf-8" } });
+  } catch (error) {
+    return new Response("Error: " + error.message, { status: 500 });
   }
 }
-async function handleKuotaRequest() {
-    return `
-        <!DOCTYPE html>
-<html lang="id" data-theme="dark">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#061518">
-  <title>GEOVPN - Cek Kuota XL/AXIS</title>
-  <script>
-    try { document.documentElement.dataset.theme = localStorage.getItem("j1-theme") || "dark"; } catch (_) {}
-  </script>
-  <!-- Font Awesome -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- jQuery -->
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <style>
-    :root{
-      --bg:#061518; --panel:rgba(9,27,31,.88); --card:#0c2429; --card2:#0a2024;
-      --line:rgba(126,222,205,.14); --line2:rgba(65,223,185,.32);
-      --text:#effdf9; --muted:#82a9a7; --sub:#628988; --mint:#20e3b2;
-      --mint2:#00bc8f; --violet:#a482ff; --green:#22da94; --red:#fb7185;
-      --shadow:0 22px 65px rgba(0,0,0,.32);
-    }
-    html[data-theme="light"]{
-      --bg:#edf9f7; --panel:rgba(255,255,255,.90); --card:#fff; --card2:#f3fffb;
-      --line:rgba(18,85,80,.12); --line2:rgba(0,165,124,.28);
-      --text:#092d30; --muted:#5d817e; --sub:#668a85; --mint:#00a87f;
-      --mint2:#008c6c; --violet:#7250d7; --shadow:0 20px 50px rgba(21,56,55,.10);
-    }
-    *{box-sizing:border-box}
-    html,body{margin:0;min-height:100%}
-    body{
-      font-family:Inter,"Segoe UI",Arial,sans-serif;color:var(--text);
-      background:
-        radial-gradient(circle at 10% 0%,rgba(32,227,178,.14),transparent 34%),
-        radial-gradient(circle at 100% 10%,rgba(164,130,255,.14),transparent 29%),
-        var(--bg);
-      padding:20px;
-    }
-    body::before{
-      content:"";position:fixed;inset:0;pointer-events:none;opacity:.20;
-      background-image:linear-gradient(rgba(100,215,195,.05) 1px,transparent 1px),
-      linear-gradient(90deg,rgba(100,215,195,.045) 1px,transparent 1px);
-      background-size:40px 40px;mask-image:linear-gradient(180deg,#000,transparent 70%);
-    }
-    button,input{font:inherit;color:inherit}
-    button{cursor:pointer;-webkit-tap-highlight-color:transparent}
-    .app{position:relative;z-index:1;width:min(940px,100%);margin:auto;padding:12px 10px 34px}
-    .hero{
-      border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);backdrop-filter:blur(16px);
-      border-radius:27px;padding:14px;margin-bottom:20px;overflow:hidden;position:relative
-    }
-    .hero::after{
-      content:"";position:absolute;width:230px;height:230px;right:-98px;top:-112px;
-      border-radius:50%;background:radial-gradient(circle,rgba(164,130,255,.35),transparent 65%);
-      pointer-events:none;
-    }
-    .top{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:8px}
-    .brand{display:flex;align-items:center;gap:10px;min-width:0}
-    .logo{
-      width:50px;height:50px;flex:0 0 50px;border-radius:16px;display:grid;place-items:center;
-      background:linear-gradient(145deg,var(--mint),#058f8b 53%,var(--violet));
-      box-shadow:0 11px 25px rgba(32,227,178,.18);border:1px solid rgba(255,255,255,.17)
-    }
-    .logo svg{width:31px;height:31px}
-    .micro{font-size:8px;letter-spacing:.3em;color:var(--mint);font-weight:850;margin-bottom:6px}
-    .brand-title{font-size:18px;font-weight:790;letter-spacing:-.045em;line-height:1;white-space:nowrap}
-    .top-buttons{display:flex;gap:5px;align-items:center}
-    .theme{
-      height:36px;width:36px;border-radius:11px;border:1px solid var(--line);
-      background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;
-      color:var(--mint);cursor:pointer;transition:all 0.2s;
-    }
-    .theme:hover{background:rgba(255,255,255,.08);transform:scale(1.02);}
-    .theme svg{width:17px;height:17px}
-    .sun{display:none}
-    html[data-theme="light"] .sun{display:block}
-    html[data-theme="light"] .moon{display:none}
-    
-    /* Loading Spinner */
-    #cover-spin {
-      position: fixed;
-      width: 100%;
-      left: 0;
-      right: 0;
-      top: 0;
-      bottom: 0;
-      background-color: rgba(0,0,0,0.7);
-      z-index: 9999;
-      display: none;
-      backdrop-filter: blur(8px);
-    }
-    
-    @keyframes spin {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
-    }
-    
-    #cover-spin::after {
-      content: '';
-      display: block;
-      position: absolute;
-      left: 48%;
-      top: 40%;
-      width: 60px;
-      height: 60px;
-      border-style: solid;
-      border-color: var(--mint);
-      border-top-color: transparent;
-      border-width: 4px;
-      border-radius: 50%;
-      animation: spin .8s linear infinite;
-    }
-    
-    /* Main Container */
-    .container{
-      max-width:1200px;
-      margin:0 auto;
-      position:relative;
-      z-index:1;
-    }
-    
-    .card{
-      background:var(--panel);
-      border:1px solid var(--line);
-      border-radius:24px;
-      backdrop-filter:blur(16px);
-      padding:24px;
-      box-shadow:var(--shadow);
-    }
-    
-    .main-container{
-      padding:20px 0;
-    }
-    
-    .header-card{
-      text-align:center;
-      margin-bottom:30px;
-    }
-    
-    .logo-container{
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      gap:15px;
-    }
-    
-    .logo-container .logo{
-      width:80px;
-      height:80px;
-      border-radius:20px;
-      object-fit:cover;
-    }
-    
-    .title{
-      font-size:28px;
-      font-weight:800;
-      letter-spacing:-.04em;
-      margin:0;
-      background:linear-gradient(135deg,var(--mint),var(--violet));
-      -webkit-background-clip:text;
-      background-clip:text;
-      color:transparent;
-    }
-    
-    .info-box{
-      background:rgba(32,227,178,.1);
-      border-left:4px solid var(--mint);
-      padding:15px 20px;
-      border-radius:12px;
-      margin-bottom:25px;
-      font-size:13px;
-      color:var(--muted);
-      display:flex;
-      align-items:center;
-      gap:12px;
-    }
-    
-    .info-box i{
-      color:var(--mint);
-      font-size:20px;
-    }
-    
-    .form-container{
-      background:var(--card);
-      border:1px solid var(--line);
-      border-radius:20px;
-      padding:25px;
-      margin-bottom:20px;
-    }
-    
-    .mb-6{
-      margin-bottom:24px;
-    }
-    
-    .block{
-      display:block;
-    }
-    
-    .font-medium{
-      font-weight:500;
-    }
-    
-    .mb-3{
-      margin-bottom:12px;
-    }
-    
-    .text-gray-300{
-      color:var(--muted);
-    }
-    
-    .text-base{
-      font-size:14px;
-    }
-    
-    .mr-2{
-      margin-right:8px;
-    }
-    
-    .input-field{
-      width:100%;
-      padding:14px 18px;
-      border:1px solid var(--line2);
-      border-radius:14px;
-      background:rgba(0,0,0,.2);
-      color:var(--text);
-      font-size:16px;
-      outline:none;
-      transition:all 0.3s;
-    }
-    
-    .input-field:focus{
-      border-color:var(--mint);
-      box-shadow:0 0 0 3px rgba(32,227,178,.1);
-    }
-    
-    .btn-primary{
-      width:100%;
-      padding:14px 28px;
-      background:linear-gradient(135deg,var(--mint),var(--mint2));
-      border:none;
-      border-radius:14px;
-      color:#062823;
-      font-weight:700;
-      font-size:16px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      gap:10px;
-      transition:all 0.3s;
-      cursor:pointer;
-    }
-    
-    .btn-primary:hover{
-      transform:translateY(-2px);
-      box-shadow:0 8px 25px rgba(32,227,178,.3);
-    }
-    
-    .btn-primary:active{
-      transform:translateY(0);
-    }
-    
-    .result-container{
-      margin-top:25px;
-    }
-    
-    .result-success{
-      background:rgba(34,218,148,.1);
-      border:1px solid var(--green);
-      padding:20px;
-      border-radius:16px;
-      text-align:center;
-      font-weight:600;
-      color:var(--green);
-      animation:fadeIn 0.3s ease;
-    }
-    
-    .result-error{
-      background:rgba(251,113,133,.1);
-      border:1px solid var(--red);
-      padding:20px;
-      border-radius:16px;
-      text-align:center;
-      font-weight:600;
-      color:var(--red);
-      animation:fadeIn 0.3s ease;
-    }
-    
-    @keyframes fadeIn{
-      from{
-        opacity:0;
-        transform:translateY(-10px);
-      }
-      to{
-        opacity:1;
-        transform:translateY(0);
-      }
-    }
-    
-    footer{
-      text-align:center;
-      padding:20px;
-      border-top:1px solid var(--line);
-      margin-top:20px;
-    }
-    
-    .footer-content{
-      display:flex;
-      justify-content:center;
-      align-items:center;
-      gap:15px;
-      font-size:12px;
-      color:var(--muted);
-    }
-    
-    .footer-link{
-      color:var(--mint);
-      text-decoration:none;
-      display:flex;
-      align-items:center;
-      gap:6px;
-      transition:color 0.2s;
-    }
-    
-    .footer-link:hover{
-      color:var(--mint2);
-      text-decoration:underline;
-    }
-    
-    /* Responsive */
-    @media(max-width:768px){
-      body{padding:10px}
-      .card{padding:16px}
-      .title{font-size:24px}
-      .logo-container .logo{width:60px;height:60px}
-      .form-container{padding:18px}
-      .btn-primary{font-size:14px;padding:12px 20px}
-    }
-    
-    @media(max-width:480px){
-      .brand-title{font-size:14px}
-      .logo{width:40px;height:40px}
-      .logo svg{width:24px;height:24px}
-      .title{font-size:20px}
-    }
-  </style>
-</head>
-<body>
-    ${SIDEBAR_COMPONENT}
-<div class="container">
-  <div class="card">
-    <main class="app">
-      <header class="hero">
-        <div class="top">
-          <div class="brand">
-            <div class="logo">
-              <svg viewBox="0 0 32 32" fill="none">
-                <path d="M16 3 26 7v7.8c0 6.1-4.1 10.7-10 13.1C10.1 25.5 6 20.9 6 14.8V7l10-4Z" fill="rgba(255,255,255,.16)" stroke="#fff" stroke-width="1.4"/>
-                <path d="m19 6.8-9 11h5l-2.2 7.5L22 14.2h-5l2-7.4Z" fill="#fff"/>
-              </svg>
-            </div>
-            <div>
-              <div class="micro">GEOVPN</div>
-              <div class="brand-title">Anak Sumbawa</div>
-            </div>
-          </div>
-          <div class="top-buttons">
-            <button class="theme" id="themeToggle" type="button" aria-label="Tema">
-              <svg class="moon" viewBox="0 0 24 24" fill="none">
-                <path d="M20.3 15.5a8.6 8.6 0 0 1-11.8-11 9 9 0 1 0 11.8 11Z" stroke="currentColor" stroke-width="1.9"/>
-              </svg>
-              <svg class="sun" viewBox="0 0 24 24" fill="none">
-                <path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0-6v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M19 5l-2 2M7 17l-2 2" stroke="currentColor" stroke-width="1.8"/>
-              </svg>
-            </button>
-          </div>
-        </div>
-      </header>
-      
-      <div id="cover-spin"></div>
-      
-      <div class="main-container">
-        <div class="header-card">
-          <div class="logo-container">
-            <img src="https://raw.githubusercontent.com/jaka9m/vless/refs/heads/main/sidompul.jpg" alt="Logo Sidompul" class="logo">
-            <h1 class="title">Sidompul Cek Kuota XL/AXIS</h1>
-          </div>
-        </div>
-        
-        <div class="info-box">
-          <i class="fa fa-info-circle"></i> 
-          Gunakan layanan ini secara bijak dan hindari spam. Pastikan nomor yang dimasukkan adalah nomor XL/AXIS aktif.
-        </div>
-        
-        <div class="form-container">
-          <form id="formnya" onsubmit="return false;">
-            <div class="mb-6">
-              <label for="msisdn" class="block font-medium mb-3 text-gray-300 text-base">
-                <i class="fa fa-mobile-alt mr-2"></i>Nomor HP XL/AXIS
-              </label>
-              <input type="tel" class="input-field" id="msisdn" placeholder="Contoh: 08123456789 atau 628123456789" maxlength="16" required>
-            </div>
-            
-            <button type="button" id="submitCekKuota" class="btn-primary">
-              <i class="fa fa-search"></i>
-              <span>Cek Kuota Sekarang</span>
-            </button>
-          </form>
-          <div id="hasilnya" class="result-container"></div>
-        </div>
-      </div>
-      
-      <footer>
-        <div class="footer-content">
-          <span>Sumbawa Support</span>
-          <a href="https://t.me/sampiiiiu" target="_blank" class="footer-link">
-            <i class="fab fa-telegram"></i>
-            <span>GEO PROJECT</span>
-          </a>
-        </div>
-      </footer>
-    </main>
-  </div>
-</div>
+
+async function handleKuotaRequest(isSpa = false) {
+    const scripts = `
 <script>
-            function toggleTheme() {
-                const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
-                document.documentElement.dataset.theme = next;
-                try { localStorage.setItem("j1-theme", next); } catch(e){}
-            }
-            
-            // Assign to the button with id="themeToggle"
-            document.addEventListener('DOMContentLoaded', () => {
-                const themeBtn = document.getElementById("themeToggle");
-                if (themeBtn) {
-                    themeBtn.addEventListener("click", toggleTheme);
+    function cekKuota() {
+        const msisdn = document.getElementById('msisdn').value;
+        if (!msisdn) return;
+        $('#cover-spin').show();
+        $.ajax({
+            type: 'GET',
+            url: 'https://apigw.kmsp-store.com/sidompul/v4/cek_kuota?msisdn=' + msisdn + '&isJSON=true',
+            dataType: 'JSON',
+            beforeSend: function (req) {
+                req.setRequestHeader('Authorization', 'Basic c2lkb21wdWxhcGk6YXBpZ3drbXNw');
+                req.setRequestHeader('X-API-Key', '60ef29aa-a648-4668-90ae-20951ef90c55');
+                req.setRequestHeader('X-App-Version', '4.0.0');
+            },
+            success: function (res) {
+                $('#cover-spin').hide();
+                if (res.status) {
+                    $('#hasilnya').html('<div style="color:green;padding:10px;border:1px solid green;border-radius:10px;margin-top:10px;">' + res.data.hasil + '</div>');
+                } else {
+                    $('#hasilnya').html('<div style="color:red;padding:10px;border:1px solid red;border-radius:10px;margin-top:10px;">' + res.data.keteranganError + '</div>');
                 }
-                
-                // Initialize theme
-                try { 
-                    const savedTheme = localStorage.getItem("j1-theme");
-                    if (savedTheme) {
-                        document.documentElement.dataset.theme = savedTheme;
-                    }
-                } catch (e) {}
-            });
-        </script>
-<script>
-        function cekKuota() {
-            const msisdn = document.getElementById('msisdn').value;
-            if (!msisdn) {
-                console.error('Nomor tidak boleh kosong.');
-                return;
+            },
+            error: function () {
+                $('#cover-spin').hide();
+                $('#hasilnya').html('<div style="color:red;padding:10px;border:1px solid red;border-radius:10px;margin-top:10px;">Terjadi kesalahan koneksi.</div>');
             }
-            
-            $('#cover-spin').show();
-            $.ajax({
-                type: 'GET',
-                url: 'https://apigw.kmsp-store.com/sidompul/v4/cek_kuota?msisdn=' + msisdn + '&isJSON=true',
-                dataType: 'JSON',
-                contentType: 'application/x-www-form-urlencoded',
-                beforeSend: function (req) {
-                    req.setRequestHeader('Authorization', 'Basic c2lkb21wdWxhcGk6YXBpZ3drbXNw');
-                    req.setRequestHeader('X-API-Key', '60ef29aa-a648-4668-90ae-20951ef90c55');
-                    req.setRequestHeader('X-App-Version', '4.0.0');
-                },
-                success: function (res) {
-                    $('#cover-spin').hide();
-                    $('#hasilnya').html('');
-                    if (res.status) {
-                        $('#hasilnya').html('<div class="result-success p-4 rounded-lg mt-4 text-center font-semibold">' + res.data.hasil + '</div>');
-                    } else {
-                        console.error('Gagal Cek Kuota: ' + res.message);
-                        $('#hasilnya').html('<div class="result-error p-4 rounded-lg mt-4 text-center font-semibold">' + res.data.keteranganError + '</div>');
-                    }
-                },
-                error: function () {
-                    $('#cover-spin').hide();
-                    console.error('Terjadi kesalahan koneksi.');
-                    $('#hasilnya').html(\`<div class="result-error p-4 rounded-lg mt-4 text-center font-semibold">Terjadi kesalahan koneksi atau server tidak merespons.</div>\`);
-                }
-            });
-        }
-        
-        // Pemasangan event listener setelah konten dimuat
-        $(document).ready(function() {
-            $('#submitCekKuota').off('click').on('click', cekKuota); 
-            $('#msisdn').off('keypress').on('keypress', function (e) {
-                if (e.which === 13) cekKuota();
-            });
         });
-    </script>
-</body>
-</html>
-    `;
+    }
+    $(document).ready(function() {
+        $('#submitCekKuota').on('click', cekKuota);
+        $('#msisdn').on('keypress', function (e) { if (e.which === 13) cekKuota(); });
+    });
+</script>`;
+    const mainContent = `
+<main class="app">
+    <div class="container">
+        <div class="card">
+            <h1 class="title">Cek Kuota XL/AXIS</h1>
+            <div class="form-container">
+                <input type="tel" id="msisdn" placeholder="Nomor HP" style="width:100%;padding:10px;margin-bottom:10px;border-radius:10px;background:#000;color:#fff;border:1px solid #333;">
+                <button id="submitCekKuota" style="width:100%;padding:10px;background:cyan;color:#000;border:none;border-radius:10px;font-weight:700;cursor:pointer;">Cek Kuota</button>
+                <div id="hasilnya"></div>
+            </div>
+            <div id="cover-spin" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;"></div>
+        </div>
+    </div>
+</main>`;
+    if (isSpa) return mainContent + scripts;
+    return '<!DOCTYPE html><html><head><title>Kuota</title><script src="https://code.jquery.com/jquery-3.6.0.min.js"></script><style>body{background:#061518;color:#fff;font-family:sans-serif;}.container{max-width:600px;margin:auto;padding:20px;}</style></head><body>' + SIDEBAR_COMPONENT + mainContent + scripts + '</body></html>';
 }
+
 // Helper function: Group proxies by country
 function groupBy(array, key) {
   return array.reduce((result, currentValue) => {
@@ -3469,14 +1939,11 @@ function groupBy(array, key) {
     return result;
   }, {});
 }
-async function handleSubRequest(hostnem, env, config) {
+async function handleSubRequest(hostnem, env, config, isSpa = false) {
   const proxyListURL = 'https://r2.jamu.workers.dev/raw/proxyList.txt';
   async function getCountryList() {
     try {
       const response = await fetch(proxyListURL);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch country list: ${response.statusText}`);
-      }
       const text = await response.text();
       const lines = text.split('\n').filter(Boolean);
       const countries = {};
@@ -3485,583 +1952,57 @@ async function handleSubRequest(hostnem, env, config) {
         const parts = line.split(',');
         if (parts.length > 2) {
           const code = parts[2].trim().toUpperCase();
-          if (code) {
-            countries[code] = regionNames.of(code);
-          }
+          if (code) countries[code] = regionNames.of(code);
         }
       });
       return Object.entries(countries).map(([code, name]) => ({ code, name }));
-    } catch (error) {
-      console.error(error);
-      return []; // Return empty list on error
-    }
+    } catch (e) { return []; }
   }
   const countries = await getCountryList();
   const countryOptions = countries.map(c => `<option value="${c.code.toLowerCase()}">${c.name}</option>`).join('\n');
-  const html = ` 
-<!DOCTYPE html>
-<html lang="id" data-theme="dark">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#061518">
-  <title>GEOVPN - Sub Link Generator</title>
-  <script>
-    try { document.documentElement.dataset.theme = localStorage.getItem("j1-theme") || "dark"; } catch (_) {}
-  </script>
-  <!-- Font Awesome -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- SweetAlert2 -->
-  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <style>
-    :root{
-      --bg:#061518; --panel:rgba(9,27,31,.88); --card:#0c2429; --card2:#0a2024;
-      --line:rgba(126,222,205,.14); --line2:rgba(65,223,185,.32);
-      --text:#effdf9; --muted:#82a9a7; --sub:#628988; --mint:#20e3b2;
-      --mint2:#00bc8f; --violet:#a482ff; --green:#22da94; --red:#fb7185;
-      --shadow:0 22px 65px rgba(0,0,0,.32);
-    }
-    html[data-theme="light"]{
-      --bg:#edf9f7; --panel:rgba(255,255,255,.90); --card:#fff; --card2:#f3fffb;
-      --line:rgba(18,85,80,.12); --line2:rgba(0,165,124,.28);
-      --text:#092d30; --muted:#5d817e; --sub:#668a85; --mint:#00a87f;
-      --mint2:#008c6c; --violet:#7250d7; --shadow:0 20px 50px rgba(21,56,55,.10);
-    }
-    *{box-sizing:border-box}
-    html,body{margin:0;min-height:100%}
-    body{
-      font-family:Inter,"Segoe UI",Arial,sans-serif;color:var(--text);
-      background:
-        radial-gradient(circle at 10% 0%,rgba(32,227,178,.14),transparent 34%),
-        radial-gradient(circle at 100% 10%,rgba(164,130,255,.14),transparent 29%),
-        var(--bg);
-      padding:20px;
-    }
-    body::before{
-      content:"";position:fixed;inset:0;pointer-events:none;opacity:.20;
-      background-image:linear-gradient(rgba(100,215,195,.05) 1px,transparent 1px),
-      linear-gradient(90deg,rgba(100,215,195,.045) 1px,transparent 1px);
-      background-size:40px 40px;mask-image:linear-gradient(180deg,#000,transparent 70%);
-    }
-    button,input,select{font:inherit;color:inherit}
-    button{cursor:pointer;-webkit-tap-highlight-color:transparent}
-    
-    .app{position:relative;z-index:1;width:min(940px,100%);margin:auto;padding:12px 10px 34px}
-    
-    .hero{
-      border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);backdrop-filter:blur(16px);
-      border-radius:27px;padding:14px;margin-bottom:20px;overflow:hidden;position:relative
-    }
-    .hero::after{
-      content:"";position:absolute;width:230px;height:230px;right:-98px;top:-112px;
-      border-radius:50%;background:radial-gradient(circle,rgba(164,130,255,.35),transparent 65%);
-      pointer-events:none;
-    }
-    .top{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:8px}
-    .brand{display:flex;align-items:center;gap:10px;min-width:0}
-    .logo{
-      width:50px;height:50px;flex:0 0 50px;border-radius:16px;display:grid;place-items:center;
-      background:linear-gradient(145deg,var(--mint),#058f8b 53%,var(--violet));
-      box-shadow:0 11px 25px rgba(32,227,178,.18);border:1px solid rgba(255,255,255,.17)
-    }
-    .logo svg{width:31px;height:31px}
-    .micro{font-size:8px;letter-spacing:.3em;color:var(--mint);font-weight:850;margin-bottom:6px}
-    .brand-title{font-size:18px;font-weight:790;letter-spacing:-.045em;line-height:1;white-space:nowrap}
-    .top-buttons{display:flex;gap:5px;align-items:center}
-    .theme{
-      height:36px;width:36px;border-radius:11px;border:1px solid var(--line);
-      background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;
-      color:var(--mint);cursor:pointer;transition:all 0.2s;
-    }
-    .theme:hover{background:rgba(255,255,255,.08);transform:scale(1.02);}
-    .theme svg{width:17px;height:17px}
-    .sun{display:none}
-    html[data-theme="light"] .sun{display:block}
-    html[data-theme="light"] .moon{display:none}
-    
-    /* Container */
-    .container{
-      max-width:1200px;
-      margin:0 auto;
-      position:relative;
-      z-index:1;
-    }
-    
-    .card{
-      background:var(--panel);
-      border:1px solid var(--line);
-      border-radius:24px;
-      backdrop-filter:blur(16px);
-      padding:24px;
-      box-shadow:var(--shadow);
-    }
-    
-    .title{
-      font-size:28px;
-      font-weight:800;
-      letter-spacing:-.04em;
-      margin:0 0 24px 0;
-      background:linear-gradient(135deg,var(--mint),var(--violet));
-      -webkit-background-clip:text;
-      background-clip:text;
-      color:transparent;
-      display:flex;
-      align-items:center;
-      gap:12px;
-    }
-    
-    /* Form Styles */
-    .form-group{
-      margin-bottom:20px;
-    }
-    
-    .form-group label{
-      display:block;
-      font-size:13px;
-      font-weight:600;
-      margin-bottom:8px;
-      color:var(--mint);
-      letter-spacing:.05em;
-    }
-    
-    .form-group label i{
-      margin-right:8px;
-    }
-    
-    .form-control{
-      width:100%;
-      padding:12px 16px;
-      border:1px solid var(--line);
-      border-radius:12px;
-      background:rgba(0,0,0,.2);
-      color:var(--text);
-      font-size:14px;
-      outline:none;
-      transition:all 0.3s;
-    }
-    
-    .form-control:focus{
-      border-color:var(--mint);
-      box-shadow:0 0 0 3px rgba(32,227,178,.1);
-    }
-    
-    select.form-control{
-      cursor:pointer;
-    }
-    
-    select.form-control option{
-      background:var(--card);
-      color:var(--text);
-    }
-    
-    .btn{
-      width:100%;
-      padding:14px 28px;
-      background:linear-gradient(135deg,var(--mint),var(--mint2));
-      border:none;
-      border-radius:14px;
-      color:#062823;
-      font-weight:700;
-      font-size:16px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      gap:10px;
-      transition:all 0.3s;
-      cursor:pointer;
-      margin-top:10px;
-    }
-    
-    .btn:hover{
-      transform:translateY(-2px);
-      box-shadow:0 8px 25px rgba(32,227,178,.3);
-    }
-    
-    .btn:active{
-      transform:translateY(0);
-    }
-    
-    /* Loading */
-    .loading{
-      text-align:center;
-      padding:40px;
-      display:none;
-      color:var(--mint);
-    }
-    
-    .loading i{
-      font-size:32px;
-      animation:spin 1s linear infinite;
-      margin-bottom:12px;
-      display:block;
-    }
-    
-    @keyframes spin{
-      from{transform:rotate(0deg);}
-      to{transform:rotate(360deg);}
-    }
-    
-    /* Result */
-    .result{
-      margin-top:25px;
-      padding:20px;
-      background:var(--card);
-      border:1px solid var(--line2);
-      border-radius:16px;
-      display:none;
-      animation:fadeIn 0.3s ease;
-    }
-    
-    @keyframes fadeIn{
-      from{
-        opacity:0;
-        transform:translateY(-10px);
-      }
-      to{
-        opacity:1;
-        transform:translateY(0);
-      }
-    }
-    
-    #generated-link{
-      font-family:monospace;
-      font-size:12px;
-      background:rgba(0,0,0,.2);
-      padding:12px;
-      border-radius:10px;
-      word-break:break-all;
-      margin-bottom:16px;
-      color:var(--mint);
-    }
-    
-    .copy-btns{
-      display:flex;
-      gap:12px;
-      justify-content:center;
-    }
-    
-    .copy-btn{
-      padding:10px 20px;
-      background:rgba(32,227,178,.1);
-      border:1px solid var(--mint);
-      border-radius:10px;
-      color:var(--mint);
-      font-weight:600;
-      font-size:13px;
-      cursor:pointer;
-      transition:all 0.2s;
-      display:flex;
-      align-items:center;
-      gap:6px;
-    }
-    
-    .copy-btn:hover{
-      background:var(--mint);
-      color:#062823;
-      transform:translateY(-1px);
-    }
-    
-    /* Error Message */
-    .error-message{
-      margin-top:16px;
-      padding:12px;
-      background:rgba(251,113,133,.1);
-      border:1px solid var(--red);
-      border-radius:12px;
-      color:var(--red);
-      font-size:13px;
-      display:none;
-    }
-    
-    /* Responsive */
-    @media(max-width:768px){
-      body{padding:10px}
-      .card{padding:18px}
-      .title{font-size:24px}
-      .form-control{padding:10px 14px;font-size:13px}
-      .btn{padding:12px 20px;font-size:14px}
-    }
-    
-    @media(max-width:480px){
-      .brand-title{font-size:14px}
-      .logo{width:40px;height:40px}
-      .logo svg{width:24px;height:24px}
-      .title{font-size:20px}
-      .copy-btns{flex-direction:column}
-      .copy-btn{justify-content:center}
-    }
-  </style>
-</head>
-<body>
-    ${SIDEBAR_COMPONENT}
-<div class="container">
-  <div class="card">
-    <main class="app">
-      <header class="hero">
-        <div class="top">
-          <div class="brand">
-            <div class="logo">
-              <svg viewBox="0 0 32 32" fill="none">
-                <path d="M16 3 26 7v7.8c0 6.1-4.1 10.7-10 13.1C10.1 25.5 6 20.9 6 14.8V7l10-4Z" fill="rgba(255,255,255,.16)" stroke="#fff" stroke-width="1.4"/>
-                <path d="m19 6.8-9 11h5l-2.2 7.5L22 14.2h-5l2-7.4Z" fill="#fff"/>
-              </svg>
-            </div>
-            <div>
-              <div class="micro">GEOVPN</div>
-              <div class="brand-title">Anak Sumbawa</div>
-            </div>
-          </div>
-          <div class="top-buttons">
-            <button class="theme" id="themeToggle" type="button" aria-label="Tema">
-              <svg class="moon" viewBox="0 0 24 24" fill="none">
-                <path d="M20.3 15.5a8.6 8.6 0 0 1-11.8-11 9 9 0 1 0 11.8 11Z" stroke="currentColor" stroke-width="1.9"/>
-              </svg>
-              <svg class="sun" viewBox="0 0 24 24" fill="none">
-                <path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0-6v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M19 5l-2 2M7 17l-2 2" stroke="currentColor" stroke-width="1.8"/>
-              </svg>
-            </button>
-          </div>
-        </div>
-      </header>
-      
-      <div>
-        <h1 class="title">
-          <i class="fas fa-link"></i> Sub Link Generator
-        </h1>
-        
-        <form id="subLinkForm">
-          <div class="form-group">
-            <label for="app">
-              <i class="fas fa-mobile-alt"></i>
-              Aplikasi
-            </label>
-            <select id="app" class="form-control" required>
-              <option value="v2ray">V2RAY</option>
-              <option value="v2rayng">V2RAYNG</option>
-              <option value="clash">CLASH</option>
-              <option value="nekobox">NEKOBOX</option>
-              <option value="singbox">SINGBOX</option>
-              <option value="surfboard">SURFBOARD</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="bug">
-              <i class="fas fa-bug"></i>
-              Bug
-            </label>
-            <input type="text" id="bug" class="form-control" placeholder="Contoh: quiz.int.vidio.com" required>
-          </div>
-          <div class="form-group">
-            <label for="configType">
-              <i class="fas fa-cog"></i>
-              Tipe Config
-            </label>
-            <select id="configType" class="form-control" required>
-              <option value="vless">VLESS</option>
-              <option value="trojan">TROJAN</option>
-              <option value="shadowsocks">SHADOWSOCKS</option>
-              <option value="mix">ALL CONFIG</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="tls">
-              <i class="fas fa-lock"></i>
-              TLS
-            </label>
-            <select id="tls" class="form-control">
-              <option value="true">TRUE</option>
-              <option value="false">FALSE</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="rootDomain">
-              <i class="fas fa-globe"></i>
-              Root Domain
-            </label>
-            <select id="rootDomain" class="form-control">
-              ${(config.ZONES || []).map(z => `<option value="${z.name}" ${config.ROOT_DOMAIN === z.name ? 'selected' : ''}>${z.name}</option>`).join('\n              ')}
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="wildcard">
-              <i class="fas fa-asterisk"></i>
-              Wildcard
-            </label>
-            <select id="wildcard" class="form-control">
-              <option value="true">TRUE</option>
-              <option value="false">FALSE</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="country">
-              <i class="fas fa-globe"></i>
-              Negara
-            </label>
-            <select id="country" class="form-control">
-              <option value="all">ALL COUNTRY</option>
-              <option value="random">RANDOM</option>
-              ${countryOptions || ''}
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="limit">
-              <i class="fas fa-list-ol"></i>
-              Jumlah Config
-            </label>
-            <input type="number" id="limit" class="form-control" min="1" max="100" placeholder="Maks 100" required>
-          </div>
-          <button type="submit" class="btn">
-            <i class="fas fa-magic"></i>
-            Generate Sub Link
-          </button>
-        </form>
-        
-        <div id="loading" class="loading">
-          <i class="fas fa-spinner"></i>
-          Generating Link...
-        </div>
-        
-        <div id="error-message" class="error-message"></div>
-        
-        <div id="result" class="result">
-          <div id="generated-link"></div>
-          <div class="copy-btns">
-            <button id="copyLink" class="copy-btn">
-              <i class="fas fa-copy"></i>
-              Copy Link
-            </button>
-            <button id="openLink" class="copy-btn">
-              <i class="fas fa-external-link-alt"></i>
-              Buka Link
-            </button>
-          </div>
-        </div>
-      </div>
-    </main>
-  </div>
-</div>
+  const scripts = `
 <script>
-            function toggleTheme() {
-                const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
-                document.documentElement.dataset.theme = next;
-                try { localStorage.setItem("j1-theme", next); } catch(e){}
-            }
-            
-            // Assign to the button with id="themeToggle"
-            document.addEventListener('DOMContentLoaded', () => {
-                const themeBtn = document.getElementById("themeToggle");
-                if (themeBtn) {
-                    themeBtn.addEventListener("click", toggleTheme);
-                }
-                
-                // Initialize theme
-                try { 
-                    const savedTheme = localStorage.getItem("j1-theme");
-                    if (savedTheme) {
-                        document.documentElement.dataset.theme = savedTheme;
-                    }
-                } catch (e) {}
+    document.addEventListener('DOMContentLoaded', () => {
+        const form = document.getElementById('subLinkForm');
+        if(!form) return;
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+            const params = new URLSearchParams({
+                type: document.getElementById('configType').value,
+                bug: document.getElementById('bug').value.trim(),
+                tls: document.getElementById('tls').value,
+                wildcard: document.getElementById('wildcard').value,
+                limit: document.getElementById('limit').value,
+                rootDomain: document.getElementById('rootDomain').value,
+                ...(document.getElementById('country').value !== 'all' && { country: document.getElementById('country').value })
             });
-        </script>
-<script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const form = document.getElementById('subLinkForm');
-            const loadingEl = document.getElementById('loading');
-            const resultEl = document.getElementById('result');
-            const generatedLinkEl = document.getElementById('generated-link');
-            const copyLinkBtn = document.getElementById('copyLink');
-            const openLinkBtn = document.getElementById('openLink');
-            const errorMessageEl = document.getElementById('error-message');
-            const appSelect = document.getElementById('app');
-            const configTypeSelect = document.getElementById('configType');
-            const elements = {
-                app: document.getElementById('app'),
-                bug: document.getElementById('bug'),
-                configType: document.getElementById('configType'),
-                tls: document.getElementById('tls'),
-                wildcard: document.getElementById('wildcard'),
-                country: document.getElementById('country'),
-                limit: document.getElementById('limit'),
-                rootDomain: document.getElementById('rootDomain')
-            };
-            appSelect.addEventListener('change', () => {
-                const selectedApp = appSelect.value;
-                const shadowsocksOption = configTypeSelect.querySelector('option[value="shadowsocks"]');
-                if (selectedApp === 'surfboard') {
-                    configTypeSelect.value = 'trojan';
-                    shadowsocksOption.disabled = true;
-                } else {
-                    shadowsocksOption.disabled = false;
-                }
-            });
-            form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                
-                loadingEl.style.display = 'block';
-                resultEl.style.display = 'none';
-                errorMessageEl.textContent = '';
-                try {
-                    const requiredFields = ['bug', 'limit'];
-                    for (let field of requiredFields) {
-                        if (!elements[field].value.trim()) {
-                            throw new Error(\`Harap isi \${field === 'bug' ? 'Bug' : 'Jumlah Config'}\`);
-                        }
-                    }
-                    const params = new URLSearchParams({
-                        type: elements.configType.value,
-                        bug: elements.bug.value.trim(),
-                        tls: elements.tls.value,
-                        wildcard: elements.wildcard.value,
-                        limit: elements.limit.value,
-                        rootDomain: elements.rootDomain.value,
-                        ...(elements.country.value !== 'all' && { country: elements.country.value })
-                    });
-                    const generatedLink = \`/vpn/\${elements.app.value}?\${params.toString()}\`;
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                    loadingEl.style.display = 'none';
-                    resultEl.style.display = 'block';
-                    generatedLinkEl.textContent = \`https://\${window.location.hostname}\${generatedLink}\`;
-                    copyLinkBtn.onclick = async () => {
-                        try {
-                            await navigator.clipboard.writeText(\`https://\${window.location.hostname}\${generatedLink}\`);
-                            Swal.fire({
-                                icon: 'success',
-                                title: 'Berhasil!',
-                                text: 'Link berhasil disalin!',
-                                background: 'rgba(30, 41, 59, 0.9)',
-                                color: '#f1f5f9',
-                                iconColor: '#10b981',
-                                confirmButtonColor: '#3b82f6'
-                            });
-                        } catch {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Gagal!',
-                                text: 'Gagal menyalin link.',
-                                background: 'rgba(30, 41, 59, 0.9)',
-                                color: '#f1f5f9',
-                                iconColor: '#ef4444',
-                                confirmButtonColor: '#3b82f6'
-                            });
-                        }
-                    };
-                    openLinkBtn.onclick = () => {
-                        window.open(generatedLink, '_blank');
-                    };
-                } catch (error) {
-                    loadingEl.style.display = 'none';
-                    errorMessageEl.textContent = error.message;
-                    console.error(error);
-                }
-            });
-        });
-    </script>
-</body>
-</html>
- `;
-  return html;
+            const link = "https://" + window.location.hostname + "/vpn/" + document.getElementById('app').value + "?" + params.toString();
+            document.getElementById('result').style.display = 'block';
+            document.getElementById('generated-link').textContent = link;
+        };
+    });
+</script>`;
+    const mainContent = `
+<main class="app"><div class="container"><div class="card">
+    <h1 class="title">Sub Generator</h1>
+    <form id="subLinkForm">
+        <select id="app" style="width:100%;padding:10px;margin-bottom:10px;border-radius:10px;background:#000;color:#fff;"><option value="clash">Clash</option><option value="v2rayng">V2RayNG</option></select>
+        <input id="bug" type="text" value="${hostnem}" style="width:100%;padding:10px;margin-bottom:10px;border-radius:10px;background:#000;color:#fff;">
+        <select id="configType" style="width:100%;padding:10px;margin-bottom:10px;border-radius:10px;background:#000;color:#fff;"><option value="vless">VLESS</option><option value="trojan">Trojan</option></select>
+        <select id="tls" style="width:100%;padding:10px;margin-bottom:10px;border-radius:10px;background:#000;color:#fff;"><option value="true">TLS</option><option value="false">No TLS</option></select>
+        <select id="wildcard" style="width:100%;padding:10px;margin-bottom:10px;border-radius:10px;background:#000;color:#fff;"><option value="false">No Wildcard</option><option value="true">Wildcard</option></select>
+        <select id="country" style="width:100%;padding:10px;margin-bottom:10px;border-radius:10px;background:#000;color:#fff;"><option value="all">All Countries</option>${countryOptions}</select>
+        <input id="limit" type="number" value="50" style="width:100%;padding:10px;margin-bottom:10px;border-radius:10px;background:#000;color:#fff;">
+        <input type="hidden" id="rootDomain" value="${config.ROOT_DOMAIN}">
+        <button type="submit" style="width:100%;padding:10px;background:cyan;color:#000;border:none;border-radius:10px;font-weight:700;">Generate</button>
+    </form>
+    <div id="result" style="display:none;margin-top:20px;word-break:break-all;font-family:monospace;padding:10px;background:#111;border-radius:10px;"><div id="generated-link"></div></div>
+</div></div></main>`;
+    if (isSpa) return mainContent + scripts;
+    return '<!DOCTYPE html><html><head><title>Sub Gen</title></head><body>' + SIDEBAR_COMPONENT + mainContent + scripts + '</body></html>';
 }
-async function handleWebRequest(request, env, config) {
+
+async function handleWebRequest(request, env, config, isSpa) {
     const cfApi = new CloudflareApi(config);
     let dynamicDomains = [];
     try {
@@ -4229,7 +2170,7 @@ function buildCountryFlag(page) {
                 </div>
             </div>
             <div class="check-wrap proxy-status" onclick="checkSingleProxy(this.closest('.server')); event.stopPropagation();" style="cursor: pointer;">
-                <button class="check checking"><i></i>CHECKING</button>
+                <button class="check checking"><i></i>MENGECEK...</button>
             </div>
             <div class="provider">
                 <small>PROVIDER</small>
@@ -4487,7 +2428,7 @@ function buildCountryFlag(page) {
       position:relative;border:1px solid var(--line);border-radius:18px;padding:12px;
       background:linear-gradient(145deg,var(--card),var(--card2));display:grid;gap:10px
     }
-    .server.open{border-color:var(--line2)}
+    .server.open{border-color:var(--line2)}.server.is-active{border-color:var(--green)!important; box-shadow: 0 0 10px rgba(34, 218, 148, 0.2);}.server.is-inactive{border-color:var(--red)!important; box-shadow: 0 0 10px rgba(251, 113, 133, 0.2);}
     .server.is-active{border-color: var(--green) !important; box-shadow: 0 0 10px rgba(34, 218, 148, 0.2);}
     .server.is-inactive{border-color: var(--red) !important; box-shadow: 0 0 10px rgba(251, 113, 133, 0.2);}
     .identity{display:flex;align-items:center;gap:10px;min-width:0;padding-right:110px}
@@ -4995,7 +2936,7 @@ function buildCountryFlag(page) {
                     const ipPort = row.dataset.ipPort;
                     const checkWrap = row.querySelector('.check-wrap');
                     const metricContainer = row.querySelector('.metric');
-                    
+
                     if (checkWrap) {
                         checkWrap.innerHTML = '<button class="check checking"><i></i>MENGECEK...</button>';
                     }
