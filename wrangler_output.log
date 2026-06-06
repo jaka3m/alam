@@ -1,0 +1,42 @@
+
+ ⛅️ wrangler 4.98.0
+───────────────────
+⎔ Starting local server...
+[wrangler:info] Ready on http://localhost:8787
+Fetched and processed 10294 proxies from R2.
+[wrangler:info] GET /web 200 OK (848ms)
+[wrangler:info] GET /web 200 OK (545ms)
+[wrangler:info] GET /api/v1/all-proxy-stats 200 OK (111ms)
+[wrangler:info] GET /geo-ip 200 OK (585ms)
+[wrangler:info] GET /geo-ip 200 OK (830ms)
+[wrangler:info] GET /geo-ip 200 OK (1805ms)
+[wrangler:info] GET /geo-ip 200 OK (1825ms)
+[wrangler:info] GET /geo-ip 200 OK (1836ms)
+[wrangler:info] GET /geo-ip 200 OK (2092ms)
+[wrangler:info] GET /geo-ip 200 OK (1735ms)
+[wrangler:info] GET /geo-ip 200 OK (2221ms)
+[wrangler:info] GET /geo-ip 200 OK (1211ms)
+[wrangler:info] GET /geo-ip 200 OK (1265ms)
+[wrangler:info] GET /geo-ip 200 OK (1187ms)
+[wrangler:info] GET /geo-ip 200 OK (1464ms)
+[wrangler:info] GET /geo-ip 200 OK (1040ms)
+[wrangler:info] GET /geo-ip 200 OK (1360ms)
+[wrangler:info] GET /geo-ip 200 OK (839ms)
+[wrangler:info] GET /geo-ip 200 OK (1344ms)
+[wrangler:info] GET /geo-ip 200 OK (1435ms)
+[31m✘ [41;31m[[41;97mERROR[41;31m][0m [1mkj::getCaughtExceptionAsKj() = kj/async-io-unix.c++:186: disconnected: ::write(fd, buffer.begin(), buffer.size()): Connection reset by peer[0m
+
+  stack: /home/jules/.npm/_npx/32026684e21afda6/node_modules/@cloudflare/workerd-linux-64/bin/workerd@528e871 /home/jules/.npm/_npx/32026684e21afda6/node_modules/@cloudflare/workerd-linux-64/bin/workerd@528f521 /home/jules/.npm/_npx/32026684e21afda6/node_modules/@cloudflare/workerd-linux-64/bin/workerd@373660f /home/jules/.npm/_npx/32026684e21afda6/node_modules/@cloudflare/workerd-linux-64/bin/workerd@3736855 /home/jules/.npm/_npx/32026684e21afda6/node_modules/@cloudflare/workerd-linux-64/bin/workerd@5251df8 /home/jules/.npm/_npx/32026684e21afda6/node_modules/@cloudflare/workerd-linux-64/bin/workerd@378ed93 /home/jules/.npm/_npx/32026684e21afda6/node_modules/@cloudflare/workerd-linux-64/bin/workerd@37928e7 /home/jules/.npm/_npx/32026684e21afda6/node_modules/@cloudflare/workerd-linux-64/bin/workerd@3792c78 /home/jules/.npm/_npx/32026684e21afda6/node_modules/@cloudflare/workerd-linux-64/bin/workerd@2e2e720 /home/jules/.npm/_npx/32026684e21afda6/node_modules/@cloudflare/workerd-linux-64/bin/workerd@20114c7
+
+
+[wrangler:info] GET /geo-ip 200 OK (7211ms)
+[wrangler:info] GET /geo-ip 200 OK (7176ms)
+[31m✘ [41;31m[[41;97mERROR[41;31m][0m [1mkj::getCaughtExceptionAsKj() = kj/async-io-unix.c++:186: disconnected: ::write(fd, buffer.begin(), buffer.size()): Connection reset by peer[0m
+
+  stack: /home/jules/.npm/_npx/32026684e21afda6/node_modules/@cloudflare/workerd-linux-64/bin/workerd@528e871 /home/jules/.npm/_npx/32026684e21afda6/node_modules/@cloudflare/workerd-linux-64/bin/workerd@528f521 /home/jules/.npm/_npx/32026684e21afda6/node_modules/@cloudflare/workerd-linux-64/bin/workerd@373660f /home/jules/.npm/_npx/32026684e21afda6/node_modules/@cloudflare/workerd-linux-64/bin/workerd@3736855 /home/jules/.npm/_npx/32026684e21afda6/node_modules/@cloudflare/workerd-linux-64/bin/workerd@5251df8 /home/jules/.npm/_npx/32026684e21afda6/node_modules/@cloudflare/workerd-linux-64/bin/workerd@378ed93 /home/jules/.npm/_npx/32026684e21afda6/node_modules/@cloudflare/workerd-linux-64/bin/workerd@37928e7 /home/jules/.npm/_npx/32026684e21afda6/node_modules/@cloudflare/workerd-linux-64/bin/workerd@3792c78 /home/jules/.npm/_npx/32026684e21afda6/node_modules/@cloudflare/workerd-linux-64/bin/workerd@2e2e720 /home/jules/.npm/_npx/32026684e21afda6/node_modules/@cloudflare/workerd-linux-64/bin/workerd@20114c7
+
+
+[wrangler:info] GET /geo-ip 200 OK (7168ms)
+[31m✘ [41;31m[[41;97mERROR[41;31m][0m [1mkj::getCaughtExceptionAsKj() = kj/async-io-unix.c++:186: disconnected: ::write(fd, buffer.begin(), buffer.size()): Broken pipe[0m
+
+  stack: /home/jules/.npm/_npx/32026684e21afda6/node_modules/@cloudflare/workerd-linux-64/bin/workerd@528e871 /home/jules/.npm/_npx/32026684e21afda6/node_modules/@cloudflare/workerd-linux-64/bin/workerd@528f521 /home/jules/.npm/_npx/32026684e21afda6/node_modules/@cloudflare/workerd-linux-64/bin/workerd@373660f /home/jules/.npm/_npx/32026684e21afda6/node_modules/@cloudflare/workerd-linux-64/bin/workerd@3736855 /home/jules/.npm/_npx/32026684e21afda6/node_modules/@cloudflare/workerd-linux-64/bin/workerd@5251df8 /home/jules/.npm/_npx/32026684e21afda6/node_modules/@cloudflare/workerd-linux-64/bin/workerd@378ed93 /home/jules/.npm/_npx/32026684e21afda6/node_modules/@cloudflare/workerd-linux-64/bin/workerd@37928e7 /home/jules/.npm/_npx/32026684e21afda6/node_modules/@cloudflare/workerd-linux-64/bin/workerd@3792c78 /home/jules/.npm/_npx/32026684e21afda6/node_modules/@cloudflare/workerd-linux-64/bin/workerd@2e2e720 /home/jules/.npm/_npx/32026684e21afda6/node_modules/@cloudflare/workerd-linux-64/bin/workerd@20114c7
