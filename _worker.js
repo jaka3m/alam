@@ -756,7 +756,7 @@ button:active {
                         // Handle potential external dependencies in <head>
                         const links = doc.querySelectorAll('link[rel="stylesheet"]');
                         for (const link of links) {
-                            if (!document.querySelector(`link[href="${link.href}"]`)) {
+                            if (!document.querySelector('link[href="' + link.href + '"]')) {
                                 const newLink = document.createElement('link');
                                 newLink.rel = 'stylesheet';
                                 newLink.href = link.href;
@@ -776,7 +776,7 @@ button:active {
                                 if (oldScript.src && (oldScript.src.includes('alpine') || oldScript.src.includes('tailwindcss'))) continue;
 
                                 if (oldScript.src) {
-                                    if (!document.querySelector(`script[src="${oldScript.src}"]`)) {
+                                    if (!document.querySelector('script[src="' + oldScript.src + '"]')) {
                                         await new Promise((resolve) => {
                                             const s = document.createElement('script');
                                             s.src = oldScript.src;
