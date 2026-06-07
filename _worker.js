@@ -257,38 +257,73 @@ export default {
         try {
             const url = new URL(request.url);
             const upgradeHeader = request.headers.get("Upgrade");
+
+            // 1. Path untuk Subscription
+            if (url.pathname === "/sub" && upgradeHeader !== "websocket") {
+                return await handleSubscription(url.hostname);
+            }
             
-            // 1. Prioritaskan tampilan UI jika path adalah root "/"
+            // 2. Prioritaskan tampilan UI
             if (url.pathname === "/" && upgradeHeader !== "websocket") {
                 return new Response(getHtml(url.hostname), {
                     headers: { "Content-Type": "text/html;charset=UTF-8" },
                 });
             }
 
-            // 2. Logika WebSocket
+            // 3. Logika WebSocket
             if (upgradeHeader === "websocket") {
                 const pathPattern = new RegExp('^' + PROTOCOLS.OBFS_PATH + '(.+[:=-]\\d+)$', 'i');
                 const match = url.pathname.match(pathPattern);
                 
                 if (match) {
-                    globalThis.pxip = match[1].replace(/[=-]/, ':');
-                    return await websocketHandler(request);
+                    const proxyIP = match[1].replace(/[=-]/, ':');
+                    return await websocketHandler(request, proxyIP);
                 }
                 
                 const oldMatch = url.pathname.match(/^\/(.+[:=-]\d+)$/);
                 if (oldMatch) {
-                    globalThis.pxip = oldMatch[1].replace(/[=-]/, ':');
-                    return await websocketHandler(request);
+                    const proxyIP = oldMatch[1].replace(/[=-]/, ':');
+                    return await websocketHandler(request, proxyIP);
                 }
             }
             
-            // 3. Jika bukan root dan bukan websocket yang valid
+            // 4. Fallback ke Assets (Cloudflare Pages)
+            if (env.ASSETS) {
+                return env.ASSETS.fetch(request);
+            }
+
+            // 5. Jika tidak ditemukan
             return new Response("Not Found", { status: 404 });
         } catch (err) {
             return new Response(`Error: ${err.toString()}`, { status: 500 });
         }
     },
 };
+
+async function handleSubscription(host) {
+    try {
+        const response = await fetch(PROTOCOLS.PL_URL);
+        const text = await response.text();
+        const lines = text.trim().split('\n');
+
+        const configs = lines.map(line => {
+            const [ip, port, country, isp] = line.split(',');
+            if (!ip || !port) return null;
+
+            const path = PROTOCOLS.OBFS_PATH + ip + "=" + port;
+            const vlessConfig = `vless://${vmessUUID}@${host}:443?encryption=none&security=tls&type=ws&host=${host}&path=${encodeURIComponent(path)}&sni=${host}#${encodeURIComponent('[VLESS] ' + country + ' - ' + isp)}`;
+            const trojanConfig = `trojan://${vmessUUID}@${host}:443?security=tls&type=ws&host=${host}&path=${encodeURIComponent(path)}&sni=${host}#${encodeURIComponent('[TROJAN] ' + country + ' - ' + isp)}`;
+
+            return `${vlessConfig}\n${trojanConfig}`;
+        }).filter(Boolean);
+
+        return new Response(configs.join('\n'), {
+            headers: { "Content-Type": "text/plain;charset=UTF-8" },
+        });
+    } catch (err) {
+        return new Response(`Error: ${err.toString()}`, { status: 500 });
+    }
+}
 
 function getHtml(hostname) {
     return `
@@ -446,9 +481,19 @@ function getHtml(hostname) {
                     ${atob('VlBOIENvbmZpZyBNYW5hZ2Vy')}
                 </h1>
             </div>
-            <button id="themeToggle" class="fixed top-4 right-4 z-50 w-10 h-10 rounded-full glass-deep flex items-center justify-center text-lg hover:scale-110 transition-all">
-                <i class="fas fa-moon"></i>
-            </button>
+            <div class="flex items-center gap-3">
+                <div class="flex glass-deep rounded-xl overflow-hidden">
+                    <a href="/sub" target="_blank" class="px-4 py-2 text-xs font-bold hover:bg-white/10 transition-all flex items-center gap-2 border-r border-white/10">
+                        <i class="fas fa-rss text-orange-400"></i> SUBSCRIPTION
+                    </a>
+                    <button onclick="copyToClipboard(window.location.origin + '/sub', this)" class="px-3 py-2 text-xs font-bold hover:bg-white/10 transition-all">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                <button id="themeToggle" class="w-10 h-10 rounded-full glass-deep flex items-center justify-center text-lg hover:scale-110 transition-all">
+                    <i class="fas fa-moon"></i>
+                </button>
+            </div>
         </div>
 
         <div class="glass-deep rounded-2xl overflow-hidden shadow-2xl">
@@ -831,7 +876,7 @@ function getHtml(hostname) {
 </html>`;
 }
 
-async function websocketHandler(request) {
+async function websocketHandler(request, proxyIP) {
     const webSocketPair = new WebSocketPair();
     const [client, webSocket] = Object.values(webSocketPair);
     webSocket.accept();
@@ -891,7 +936,7 @@ async function websocketHandler(request) {
             }
 
             handleTCPOutbound(remoteSocketWrapper, protocolHeader.addressRemote, protocolHeader.portRemote,
-                protocolHeader.rawClientData, webSocket, protocolHeader.version, log);
+                protocolHeader.rawClientData, webSocket, protocolHeader.version, proxyIP, log);
         },
         close() {
             log(`readableWebSocketStream closed`);
@@ -1217,7 +1262,7 @@ async function remoteSocketToWS(remoteSocket, webSocket, responseHeader, retry, 
     }
 }
 
-async function handleTCPOutbound(remoteSocket, addressRemote, portRemote, rawClientData, webSocket, responseHeader, log) {
+async function handleTCPOutbound(remoteSocket, addressRemote, portRemote, rawClientData, webSocket, responseHeader, proxyIP, log) {
     async function connectAndWrite(address, port) {
         const tcpSocket = connect({
             hostname: address,
@@ -1231,8 +1276,8 @@ async function handleTCPOutbound(remoteSocket, addressRemote, portRemote, rawCli
         return tcpSocket;
     }
     async function retry() {
-        // Pemisahan IP dan Port dari globalThis.pxip (format ip:port)
-        const parts = globalThis.pxip?.split(':') || [];
+        // Pemisahan IP dan Port dari proxyIP (format ip:port)
+        const parts = proxyIP?.split(':') || [];
         const tcpSocket = await connectAndWrite(
             parts[0] || addressRemote,
             parseInt(parts[1]) || portRemote
