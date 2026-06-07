@@ -972,7 +972,7 @@ async function detectProtocol(buffer) {
         }
     }
     const uuidCheck = buffer.slice(1, 17);
-    const hexString = arrayBufferToHex(uuidCheck.buffer);
+    const hexString = arrayToHex(uuidCheck);
     if (DETECTION_PATTERNS.UUID_V4_REGEX.test(hexString)) return PROTOCOLS.P2;
 
     return PROTOCOLS.P3;
@@ -1252,7 +1252,7 @@ async function remoteSocketToWS(remoteSocket, webSocket, responseHeader, retry, 
             hasIncomingData = true;
             if (webSocket.readyState !== WS_READY_STATE_OPEN) controller.error("webSocket closed");
             if (header) {
-                webSocket.send(await new Blob([header, chunk]).arrayBuffer());
+                webSocket.send(concat(header, new Uint8Array(chunk)));
                 header = null;
             } else webSocket.send(chunk);
         },
@@ -1264,11 +1264,11 @@ async function remoteSocketToWS(remoteSocket, webSocket, responseHeader, retry, 
         },
     })).catch((error) => {
         console.error(`remoteSocketToWS error`, error.stack || error);
-        safeCloseWebSocket(webSocket);
+        if (!retry) safeCloseWebSocket(webSocket);
     });
     if (!hasIncomingData && retry) {
         log(`retrying`);
-        retry();
+        await retry();
     }
 }
 
@@ -1286,17 +1286,35 @@ async function handleTCPOutbound(remoteSocket, addressRemote, portRemote, rawCli
         return tcpSocket;
     }
     async function retry() {
-        // Pemisahan IP dan Port dari proxyIP (format ip:port)
-        const parts = proxyIP?.split(':') || [];
-        const tcpSocket = await connectAndWrite(
-            parts[0] || addressRemote,
-            parseInt(parts[1]) || portRemote
-        );
-        tcpSocket.closed.catch(e => console.log("retry closed error", e)).finally(() => safeCloseWebSocket(webSocket));
-        remoteSocketToWS(tcpSocket, webSocket, responseHeader, null, log);
+        if (!proxyIP) return;
+        const parts = proxyIP.split(':');
+        const address = parts[0] || addressRemote;
+        const port = parseInt(parts[1]) || portRemote;
+        log(`retrying with ${address}:${port}`);
+        try {
+            const tcpSocket = await connectAndWrite(address, port);
+            tcpSocket.closed.catch(e => log("retry closed error", e)).finally(() => safeCloseWebSocket(webSocket));
+            await remoteSocketToWS(tcpSocket, webSocket, responseHeader, null, log);
+        } catch (err) {
+            log(`retry connect error`, err);
+            safeCloseWebSocket(webSocket);
+        }
     }
-    const tcpSocket = await connectAndWrite(addressRemote, portRemote);
-    remoteSocketToWS(tcpSocket, webSocket, responseHeader, retry, log);
+
+    try {
+        const tcpSocket = await connectAndWrite(addressRemote, portRemote);
+        tcpSocket.closed.catch(e => log("socket closed", e)).finally(() => {
+            if (remoteSocket.value === tcpSocket) safeCloseWebSocket(webSocket);
+        });
+        await remoteSocketToWS(tcpSocket, webSocket, responseHeader, retry, log);
+    } catch (err) {
+        log(`initial connect error`, err);
+        if (proxyIP) {
+            await retry();
+        } else {
+            safeCloseWebSocket(webSocket);
+        }
+    }
 }
 
 function createReadableWebSocketStream(webSocketServer, earlyDataHeader, log) {
@@ -1350,8 +1368,8 @@ function base64ToArrayBuffer(base64Str) {
     }
 }
 
-function arrayBufferToHex(buffer) {
-    return [...new Uint8Array(buffer)].map(x => x.toString(16).padStart(2, "0")).join("");
+function arrayToHex(arr) {
+    return [...new Uint8Array(arr)].map(x => x.toString(16).padStart(2, "0")).join("");
 }
 
 async function handleUDPOutbound(webSocket, responseHeader, log) {
