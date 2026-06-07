@@ -272,22 +272,20 @@ export default {
 
             // 3. Logika WebSocket
             if (upgradeHeader === "websocket") {
+                let proxyIP = null;
                 const pathPattern = new RegExp('^' + PROTOCOLS.OBFS_PATH + '(.+[:=-]\\d+)$', 'i');
                 const match = url.pathname.match(pathPattern);
                 
                 if (match) {
-                    const proxyIP = match[1].replace(/[=-]/, ':');
-                    return await websocketHandler(request, proxyIP);
-                }
-                
-                const oldMatch = url.pathname.match(/^\/(.+[:=-]\d+)$/);
-                if (oldMatch) {
-                    const proxyIP = oldMatch[1].replace(/[=-]/, ':');
-                    return await websocketHandler(request, proxyIP);
+                    proxyIP = match[1].replace(/[=-]/, ':');
+                } else {
+                    const oldMatch = url.pathname.match(/^\/(.+[:=-]\d+)$/);
+                    if (oldMatch) {
+                        proxyIP = oldMatch[1].replace(/[=-]/, ':');
+                    }
                 }
 
-                // Fallback: Izinkan websocket tanpa proxyIP di path
-                return await websocketHandler(request, null);
+                return await websocketHandler(request, proxyIP);
             }
             
             // 4. Fallback ke Assets (Cloudflare Pages)
@@ -315,14 +313,14 @@ async function handleSubscription(host) {
 
             const path = PROTOCOLS.OBFS_PATH + ip + "=" + port;
 
-            const vlessConfig = `vless://${vmessUUID}@${host}:443?encryption=none&security=tls&type=ws&host=${host}&path=${encodeURIComponent(path)}&sni=${host}#${encodeURIComponent('[VLESS] ' + country + ' - ' + isp)}`;
-            const trojanConfig = `trojan://${vmessUUID}@${host}:443?security=tls&type=ws&host=${host}&path=${encodeURIComponent(path)}&sni=${host}#${encodeURIComponent('[TROJAN] ' + country + ' - ' + isp)}`;
+            const vlessConfig = `vless://${vmessUUID}@${host}:443?encryption=none&security=tls&type=ws&host=${host}&path=${encodeURIComponent(path)}&sni=${host}#${encodeURIComponent('[VLESS-TLS] ' + country + ' - ' + isp)}`;
+            const trojanConfig = `trojan://${vmessUUID}@${host}:443?security=tls&type=ws&host=${host}&path=${encodeURIComponent(path)}&sni=${host}#${encodeURIComponent('[Trojan-TLS] ' + country + ' - ' + isp)}`;
 
-            const vmessObj = { v: "2", ps: `[VMESS] ${country} - ${isp}`, add: host, port: 443, id: vmessUUID, aid: "0", scy: "zero", net: "ws", type: "none", host: host, path: path, tls: "tls", sni: host };
+            const vmessObj = { v: "2", ps: `[VMess-TLS] ${country} - ${isp}`, add: host, port: 443, id: vmessUUID, aid: "0", scy: "zero", net: "ws", type: "none", host: host, path: path, tls: "tls", sni: host };
             const vmessConfig = `vmess://${btoa(JSON.stringify(vmessObj))}`;
 
             const ssEncodedAuth = btoa(`none:${vmessUUID}`);
-            const ssConfig = `ss://${ssEncodedAuth}@${host}:443?path=${encodeURIComponent(path)}&security=tls&host=${host}&type=ws&sni=${host}#${encodeURIComponent('[SS] ' + country + ' - ' + isp)}`;
+            const ssConfig = `ss://${ssEncodedAuth}@${host}:443?path=${encodeURIComponent(path)}&security=tls&host=${host}&type=ws&sni=${host}#${encodeURIComponent('[Shadowsocks-TLS] ' + country + ' - ' + isp)}`;
 
             return `${vlessConfig}\n${trojanConfig}\n${vmessConfig}\n${ssConfig}`;
         }).filter(Boolean);
@@ -945,7 +943,7 @@ async function websocketHandler(request, proxyIP) {
                 return;
             }
 
-            handleTCPOutbound(remoteSocketWrapper, protocolHeader.addressRemote, protocolHeader.portRemote,
+            await handleTCPOutbound(remoteSocketWrapper, protocolHeader.addressRemote, protocolHeader.portRemote,
                 protocolHeader.rawClientData, webSocket, protocolHeader.version, proxyIP, log);
         },
         close() {
@@ -956,9 +954,15 @@ async function websocketHandler(request, proxyIP) {
         },
     })).catch((err) => log("pipeTo error", err));
 
+    const responseHeaders = new Headers();
+    responseHeaders.set("Upgrade", "websocket");
+    responseHeaders.set("Connection", "Upgrade");
+    if (earlyDataHeader) responseHeaders.set("Sec-WebSocket-Protocol", earlyDataHeader);
+
     return new Response(null, {
         status: 101,
-        webSocket: client
+        webSocket: client,
+        headers: responseHeaders
     });
 }
 
@@ -1399,9 +1403,9 @@ async function handleUDPOutbound(webSocket, responseHeader, log) {
             const udpSizeBuffer = new Uint8Array([(udpSize >> 8) & 0xff, udpSize & 0xff]);
             if (webSocket.readyState === WS_READY_STATE_OPEN) {
                 log(`DoH success, DNS length: ${udpSize}`);
-                if (isHeaderSent) webSocket.send(await new Blob([udpSizeBuffer, dnsQueryResult]).arrayBuffer());
+            if (isHeaderSent) webSocket.send(concat(udpSizeBuffer, new Uint8Array(dnsQueryResult)));
                 else {
-                    webSocket.send(await new Blob([responseHeader, udpSizeBuffer, dnsQueryResult]).arrayBuffer());
+                webSocket.send(concat(responseHeader || new Uint8Array(0), udpSizeBuffer, new Uint8Array(dnsQueryResult)));
                     isHeaderSent = true;
                 }
             }
