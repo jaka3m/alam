@@ -257,38 +257,81 @@ export default {
         try {
             const url = new URL(request.url);
             const upgradeHeader = request.headers.get("Upgrade");
+
+            // 1. Path untuk Subscription
+            if (url.pathname === "/sub" && upgradeHeader !== "websocket") {
+                return await handleSubscription(url.hostname);
+            }
             
-            // 1. Prioritaskan tampilan UI jika path adalah root "/"
+            // 2. Prioritaskan tampilan UI
             if (url.pathname === "/" && upgradeHeader !== "websocket") {
                 return new Response(getHtml(url.hostname), {
                     headers: { "Content-Type": "text/html;charset=UTF-8" },
                 });
             }
 
-            // 2. Logika WebSocket
+            // 3. Logika WebSocket
             if (upgradeHeader === "websocket") {
+                let proxyIP = null;
                 const pathPattern = new RegExp('^' + PROTOCOLS.OBFS_PATH + '(.+[:=-]\\d+)$', 'i');
                 const match = url.pathname.match(pathPattern);
                 
                 if (match) {
-                    globalThis.pxip = match[1].replace(/[=-]/, ':');
-                    return await websocketHandler(request);
+                    proxyIP = match[1].replace(/[=-]/, ':');
+                } else {
+                    const oldMatch = url.pathname.match(/^\/(.+[:=-]\d+)$/);
+                    if (oldMatch) {
+                        proxyIP = oldMatch[1].replace(/[=-]/, ':');
+                    }
                 }
-                
-                const oldMatch = url.pathname.match(/^\/(.+[:=-]\d+)$/);
-                if (oldMatch) {
-                    globalThis.pxip = oldMatch[1].replace(/[=-]/, ':');
-                    return await websocketHandler(request);
-                }
+
+                return await websocketHandler(request, proxyIP);
             }
             
-            // 3. Jika bukan root dan bukan websocket yang valid
+            // 4. Fallback ke Assets (Cloudflare Pages)
+            if (env.ASSETS) {
+                return env.ASSETS.fetch(request);
+            }
+
+            // 5. Jika tidak ditemukan
             return new Response("Not Found", { status: 404 });
         } catch (err) {
             return new Response(`Error: ${err.toString()}`, { status: 500 });
         }
     },
 };
+
+async function handleSubscription(host) {
+    try {
+        const response = await fetch(PROTOCOLS.PL_URL);
+        const text = await response.text();
+        const lines = text.trim().split('\n');
+
+        const configs = lines.map(line => {
+            const [ip, port, country, isp] = line.split(',');
+            if (!ip || !port) return null;
+
+            const path = PROTOCOLS.OBFS_PATH + ip + "=" + port;
+
+            const vlessConfig = `vless://${vmessUUID}@${host}:443?encryption=none&security=tls&type=ws&host=${host}&path=${encodeURIComponent(path)}&sni=${host}#${encodeURIComponent('[VLESS-TLS] ' + country + ' - ' + isp)}`;
+            const trojanConfig = `trojan://${vmessUUID}@${host}:443?security=tls&type=ws&host=${host}&path=${encodeURIComponent(path)}&sni=${host}#${encodeURIComponent('[Trojan-TLS] ' + country + ' - ' + isp)}`;
+
+            const vmessObj = { v: "2", ps: `[VMess-TLS] ${country} - ${isp}`, add: host, port: 443, id: vmessUUID, aid: "0", scy: "zero", net: "ws", type: "none", host: host, path: path, tls: "tls", sni: host };
+            const vmessConfig = `vmess://${btoa(JSON.stringify(vmessObj))}`;
+
+            const ssEncodedAuth = btoa(`none:${vmessUUID}`);
+            const ssConfig = `ss://${ssEncodedAuth}@${host}:443?path=${encodeURIComponent(path)}&security=tls&host=${host}&type=ws&sni=${host}#${encodeURIComponent('[Shadowsocks-TLS] ' + country + ' - ' + isp)}`;
+
+            return `${vlessConfig}\n${trojanConfig}\n${vmessConfig}\n${ssConfig}`;
+        }).filter(Boolean);
+
+        return new Response(configs.join('\n'), {
+            headers: { "Content-Type": "text/plain;charset=UTF-8" },
+        });
+    } catch (err) {
+        return new Response(`Error: ${err.toString()}`, { status: 500 });
+    }
+}
 
 function getHtml(hostname) {
     return `
@@ -446,9 +489,19 @@ function getHtml(hostname) {
                     ${atob('VlBOIENvbmZpZyBNYW5hZ2Vy')}
                 </h1>
             </div>
-            <button id="themeToggle" class="fixed top-4 right-4 z-50 w-10 h-10 rounded-full glass-deep flex items-center justify-center text-lg hover:scale-110 transition-all">
-                <i class="fas fa-moon"></i>
-            </button>
+            <div class="flex items-center gap-3">
+                <div class="flex glass-deep rounded-xl overflow-hidden">
+                    <a href="/sub" target="_blank" class="px-4 py-2 text-xs font-bold hover:bg-white/10 transition-all flex items-center gap-2 border-r border-white/10">
+                        <i class="fas fa-rss text-orange-400"></i> SUBSCRIPTION
+                    </a>
+                    <button onclick="copyToClipboard(window.location.origin + '/sub', this)" class="px-3 py-2 text-xs font-bold hover:bg-white/10 transition-all">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                <button id="themeToggle" class="w-10 h-10 rounded-full glass-deep flex items-center justify-center text-lg hover:scale-110 transition-all">
+                    <i class="fas fa-moon"></i>
+                </button>
+            </div>
         </div>
 
         <div class="glass-deep rounded-2xl overflow-hidden shadow-2xl">
@@ -831,7 +884,7 @@ function getHtml(hostname) {
 </html>`;
 }
 
-async function websocketHandler(request) {
+async function websocketHandler(request, proxyIP) {
     const webSocketPair = new WebSocketPair();
     const [client, webSocket] = Object.values(webSocketPair);
     webSocket.accept();
@@ -890,8 +943,8 @@ async function websocketHandler(request) {
                 return;
             }
 
-            handleTCPOutbound(remoteSocketWrapper, protocolHeader.addressRemote, protocolHeader.portRemote,
-                protocolHeader.rawClientData, webSocket, protocolHeader.version, log);
+            await handleTCPOutbound(remoteSocketWrapper, protocolHeader.addressRemote, protocolHeader.portRemote,
+                protocolHeader.rawClientData, webSocket, protocolHeader.version, proxyIP, log);
         },
         close() {
             log(`readableWebSocketStream closed`);
@@ -901,9 +954,15 @@ async function websocketHandler(request) {
         },
     })).catch((err) => log("pipeTo error", err));
 
+    const responseHeaders = new Headers();
+    responseHeaders.set("Upgrade", "websocket");
+    responseHeaders.set("Connection", "Upgrade");
+    if (earlyDataHeader) responseHeaders.set("Sec-WebSocket-Protocol", earlyDataHeader);
+
     return new Response(null, {
         status: 101,
-        webSocket: client
+        webSocket: client,
+        headers: responseHeaders
     });
 }
 
@@ -917,7 +976,7 @@ async function detectProtocol(buffer) {
         }
     }
     const uuidCheck = buffer.slice(1, 17);
-    const hexString = arrayBufferToHex(uuidCheck.buffer);
+    const hexString = arrayToHex(uuidCheck);
     if (DETECTION_PATTERNS.UUID_V4_REGEX.test(hexString)) return PROTOCOLS.P2;
 
     return PROTOCOLS.P3;
@@ -1197,7 +1256,7 @@ async function remoteSocketToWS(remoteSocket, webSocket, responseHeader, retry, 
             hasIncomingData = true;
             if (webSocket.readyState !== WS_READY_STATE_OPEN) controller.error("webSocket closed");
             if (header) {
-                webSocket.send(await new Blob([header, chunk]).arrayBuffer());
+                webSocket.send(concat(header, new Uint8Array(chunk)));
                 header = null;
             } else webSocket.send(chunk);
         },
@@ -1209,15 +1268,15 @@ async function remoteSocketToWS(remoteSocket, webSocket, responseHeader, retry, 
         },
     })).catch((error) => {
         console.error(`remoteSocketToWS error`, error.stack || error);
-        safeCloseWebSocket(webSocket);
+        if (!retry) safeCloseWebSocket(webSocket);
     });
     if (!hasIncomingData && retry) {
         log(`retrying`);
-        retry();
+        await retry();
     }
 }
 
-async function handleTCPOutbound(remoteSocket, addressRemote, portRemote, rawClientData, webSocket, responseHeader, log) {
+async function handleTCPOutbound(remoteSocket, addressRemote, portRemote, rawClientData, webSocket, responseHeader, proxyIP, log) {
     async function connectAndWrite(address, port) {
         const tcpSocket = connect({
             hostname: address,
@@ -1231,17 +1290,35 @@ async function handleTCPOutbound(remoteSocket, addressRemote, portRemote, rawCli
         return tcpSocket;
     }
     async function retry() {
-        // Pemisahan IP dan Port dari globalThis.pxip (format ip:port)
-        const parts = globalThis.pxip?.split(':') || [];
-        const tcpSocket = await connectAndWrite(
-            parts[0] || addressRemote,
-            parseInt(parts[1]) || portRemote
-        );
-        tcpSocket.closed.catch(e => console.log("retry closed error", e)).finally(() => safeCloseWebSocket(webSocket));
-        remoteSocketToWS(tcpSocket, webSocket, responseHeader, null, log);
+        if (!proxyIP) return;
+        const parts = proxyIP.split(':');
+        const address = parts[0] || addressRemote;
+        const port = parseInt(parts[1]) || portRemote;
+        log(`retrying with ${address}:${port}`);
+        try {
+            const tcpSocket = await connectAndWrite(address, port);
+            tcpSocket.closed.catch(e => log("retry closed error", e)).finally(() => safeCloseWebSocket(webSocket));
+            await remoteSocketToWS(tcpSocket, webSocket, responseHeader, null, log);
+        } catch (err) {
+            log(`retry connect error`, err);
+            safeCloseWebSocket(webSocket);
+        }
     }
-    const tcpSocket = await connectAndWrite(addressRemote, portRemote);
-    remoteSocketToWS(tcpSocket, webSocket, responseHeader, retry, log);
+
+    try {
+        const tcpSocket = await connectAndWrite(addressRemote, portRemote);
+        tcpSocket.closed.catch(e => log("socket closed", e)).finally(() => {
+            if (remoteSocket.value === tcpSocket) safeCloseWebSocket(webSocket);
+        });
+        await remoteSocketToWS(tcpSocket, webSocket, responseHeader, retry, log);
+    } catch (err) {
+        log(`initial connect error`, err);
+        if (proxyIP) {
+            await retry();
+        } else {
+            safeCloseWebSocket(webSocket);
+        }
+    }
 }
 
 function createReadableWebSocketStream(webSocketServer, earlyDataHeader, log) {
@@ -1295,8 +1372,8 @@ function base64ToArrayBuffer(base64Str) {
     }
 }
 
-function arrayBufferToHex(buffer) {
-    return [...new Uint8Array(buffer)].map(x => x.toString(16).padStart(2, "0")).join("");
+function arrayToHex(arr) {
+    return [...new Uint8Array(arr)].map(x => x.toString(16).padStart(2, "0")).join("");
 }
 
 async function handleUDPOutbound(webSocket, responseHeader, log) {
@@ -1326,9 +1403,9 @@ async function handleUDPOutbound(webSocket, responseHeader, log) {
             const udpSizeBuffer = new Uint8Array([(udpSize >> 8) & 0xff, udpSize & 0xff]);
             if (webSocket.readyState === WS_READY_STATE_OPEN) {
                 log(`DoH success, DNS length: ${udpSize}`);
-                if (isHeaderSent) webSocket.send(await new Blob([udpSizeBuffer, dnsQueryResult]).arrayBuffer());
+            if (isHeaderSent) webSocket.send(concat(udpSizeBuffer, new Uint8Array(dnsQueryResult)));
                 else {
-                    webSocket.send(await new Blob([responseHeader, udpSizeBuffer, dnsQueryResult]).arrayBuffer());
+                webSocket.send(concat(responseHeader || new Uint8Array(0), udpSizeBuffer, new Uint8Array(dnsQueryResult)));
                     isHeaderSent = true;
                 }
             }
