@@ -285,6 +285,9 @@ export default {
                     const proxyIP = oldMatch[1].replace(/[=-]/, ':');
                     return await websocketHandler(request, proxyIP);
                 }
+
+                // Fallback: Izinkan websocket tanpa proxyIP di path
+                return await websocketHandler(request, null);
             }
             
             // 4. Fallback ke Assets (Cloudflare Pages)
@@ -311,10 +314,17 @@ async function handleSubscription(host) {
             if (!ip || !port) return null;
 
             const path = PROTOCOLS.OBFS_PATH + ip + "=" + port;
+
             const vlessConfig = `vless://${vmessUUID}@${host}:443?encryption=none&security=tls&type=ws&host=${host}&path=${encodeURIComponent(path)}&sni=${host}#${encodeURIComponent('[VLESS] ' + country + ' - ' + isp)}`;
             const trojanConfig = `trojan://${vmessUUID}@${host}:443?security=tls&type=ws&host=${host}&path=${encodeURIComponent(path)}&sni=${host}#${encodeURIComponent('[TROJAN] ' + country + ' - ' + isp)}`;
 
-            return `${vlessConfig}\n${trojanConfig}`;
+            const vmessObj = { v: "2", ps: `[VMESS] ${country} - ${isp}`, add: host, port: 443, id: vmessUUID, aid: "0", scy: "zero", net: "ws", type: "none", host: host, path: path, tls: "tls", sni: host };
+            const vmessConfig = `vmess://${btoa(JSON.stringify(vmessObj))}`;
+
+            const ssEncodedAuth = btoa(`none:${vmessUUID}`);
+            const ssConfig = `ss://${ssEncodedAuth}@${host}:443?path=${encodeURIComponent(path)}&security=tls&host=${host}&type=ws&sni=${host}#${encodeURIComponent('[SS] ' + country + ' - ' + isp)}`;
+
+            return `${vlessConfig}\n${trojanConfig}\n${vmessConfig}\n${ssConfig}`;
         }).filter(Boolean);
 
         return new Response(configs.join('\n'), {
